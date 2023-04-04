@@ -611,6 +611,73 @@ defmodule CarReqTest do
 
       assert logs =~ ""
     end
+
+    test "with invalid finch supervisor name" do
+      defmodule TestBadFinch do
+        use CarReq,
+          finch: CarReq.Finch
+
+        @impl true
+        def base_url, do: ""
+      end
+
+      resp =
+        TestBadFinch.request(
+          method: :get,
+          url: "http://httpstat.us/500",
+          receive_timeout: 10
+        )
+
+      assert resp == {:error, "%ArgumentError{message: \"unknown registry: CarReq.Finch\"}"}
+    end
+
+    test "with valid finch supervisor name" do
+      start_supervised!({Finch, name: CarReq.FinchSupervisor})
+
+      defmodule TestFinch do
+        use CarReq,
+          finch: CarReq.FinchSupervisor
+
+        @impl true
+        def base_url, do: ""
+      end
+
+      # set a receive timeout, long enough that we get a pool worker from the Finch supervisor, but
+      # short enough so we don't wait on a real HTTP call.
+
+      resp =
+        TestFinch.request(
+          method: :get,
+          url: "http://httpstat.us/200",
+          receive_timeout: 2
+        )
+
+      assert resp == {:error, %Mint.TransportError{reason: :timeout}}
+    end
+
+    test "set finch in request options" do
+      start_supervised!({Finch, name: CarReq.FinchSupervisor})
+
+      defmodule TestRuntimeFinch do
+        use CarReq
+
+        @impl true
+        def base_url, do: ""
+      end
+
+      # set a receive timeout long enough that we get a pool worker from the Finch supervisor, but
+      # short enough so we don't wait on a real HTTP call.
+
+      resp =
+        TestRuntimeFinch.request(
+          finch: CarReq.FinchSupervisor,
+          method: :get,
+          receive_timeout: 2,
+          url: "http://httpstat.us/200"
+        )
+
+      assert resp == {:error, %Mint.TransportError{reason: :timeout}}
+    end
   end
 
   describe "request/1" do
