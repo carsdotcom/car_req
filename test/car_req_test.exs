@@ -486,6 +486,14 @@ defmodule CarReqTest do
                )
     end
 
+    test "fuse_opts invalid raises" do
+      assert_raise NimbleOptions.ValidationError, "invalid value for :fuse_opts option: :fuse_opts must be a two-element tuple or the atom :disabled", fn ->
+        defmodule TestInvalidFuseImpl do
+          use CarReq, fuse_opts: %{an_invalid: :map}
+        end
+      end
+    end
+
     test "emit logs for 500 + statuses" do
       log =
         capture_log(fn ->
@@ -755,6 +763,16 @@ defmodule CarReqTest do
 
       client = Test.StructURL.client([])
       assert client.options.base_url == base_url
+    end
+
+    test "when base_url is invalid" do
+      base_url = :"not-a-string-or-URI"
+
+      assert_raise NimbleOptions.ValidationError, "invalid value for :base_url option: :base_url must be a String or %URI{}", fn ->
+        defmodule Test.InvalidURL do
+          use CarReq, base_url: base_url
+        end
+      end
     end
   end
 

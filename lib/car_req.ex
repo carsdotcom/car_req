@@ -142,7 +142,8 @@ defmodule CarReq do
 
   @schema [
     base_url: [
-      type: {:or, [:string, {:struct, URI}]}
+      # type: {:or, [:string, {:struct, URI}]} NimbleOptions doesn't support struct in this version
+      type: {:custom, __MODULE__, :validate_url, []}
     ],
     datadog_service_name: [
       type: :atom
@@ -183,8 +184,8 @@ defmodule CarReq do
       type: :atom
     ],
     fuse_opts: [
-      # type: :tuple NimbleOptions doesn't support tuple in this version
-      type: :any
+      # type: {:in, [:disabled, :tuple]} NimbleOptions doesn't support tuple in this version
+      type: {:custom, __MODULE__, :validate_fuse_opts, []}
     ],
     fuse_verbose: [
       type: :boolean
@@ -198,6 +199,23 @@ defmodule CarReq do
   ]
 
   @compiled_schema NimbleOptions.new!(@schema)
+
+  def validate_url(value) do
+    cond do
+      match?(%URI{}, value) -> {:ok, value}
+      is_bitstring(value) -> {:ok, value}
+      true -> {:error, ":base_url must be a String or %URI{}"}
+    end
+  end
+
+  def validate_fuse_opts(value) do
+    cond do
+      match?({{_, _, _}, {_, _}}, value) -> {:ok, value}
+      match?({{_, _, _, _}, {_, _}}, value) -> {:ok, value}
+      value == :disabled -> {:ok, value}
+      true -> {:error, ":fuse_opts must be a two-element tuple or the atom :disabled"}
+    end
+  end
 
   def validate_options!(opts) do
     NimbleOptions.validate!(opts, @compiled_schema)
