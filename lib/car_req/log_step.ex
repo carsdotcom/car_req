@@ -66,19 +66,21 @@ defmodule CarReq.LogStep do
 
   defp emit_log({request, response}) do
     if response.status > 499 do
-      message = Enum.reduce(
-        [
-          module: request.options.implementing_module,
-          status: response.status,
-          body: set_body(response.body),
-          url: to_string(request.url)
-        ],
-        "",
-        fn
-          {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
-          value, acc -> acc <> "#{inspect(value)}\n"
-        end
-      )
+      message =
+        Enum.reduce(
+          [
+            module: request.options.implementing_module,
+            status: response.status,
+            body: set_body(response.body),
+            url: to_string(request.url)
+          ],
+          "",
+          fn
+            {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
+            value, acc -> acc <> "#{inspect(value)}\n"
+          end
+        )
+
       Logger.warning("CarReq request failed " <> message)
     else
       :ok

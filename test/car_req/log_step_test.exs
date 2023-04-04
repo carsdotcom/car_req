@@ -158,33 +158,37 @@ defmodule LogStepTest do
       log_func = fn {_request, response} ->
         cond do
           response.status > 411 && response.status < 500 ->
-            message = Enum.reduce(
-              [
-                module: module,
-                status: response.status,
-                body: response.body
-              ],
-              "",
-              fn
-                {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
-                value, acc -> acc <> "#{inspect(value)}\n"
-              end
-            )
+            message =
+              Enum.reduce(
+                [
+                  module: module,
+                  status: response.status,
+                  body: response.body
+                ],
+                "",
+                fn
+                  {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
+                  value, acc -> acc <> "#{inspect(value)}\n"
+                end
+              )
+
             Logger.warning("this is my WARNING logger state " <> message)
 
           response.status > 499 ->
-            message = Enum.reduce(
-              [
-                module: module,
-                status: response.status,
-                body: response.body
-              ],
-              "",
-              fn
-                {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
-                value, acc -> acc <> "#{inspect(value)}\n"
-              end
-            )
+            message =
+              Enum.reduce(
+                [
+                  module: module,
+                  status: response.status,
+                  body: response.body
+                ],
+                "",
+                fn
+                  {key, value}, acc -> acc <> "#{key}: #{inspect(value)}\n"
+                  value, acc -> acc <> "#{inspect(value)}\n"
+                end
+              )
+
             Logger.error("this is my ERROR logger state " <> message)
 
           true ->
@@ -221,6 +225,7 @@ defmodule LogStepTest do
 
       assert logs =~ "[error] this is my ERROR logger state"
       assert logs =~ "module: This.Test.Module"
+
       req =
         Req.new(adapter: adapter200)
         |> Req.Request.register_options([:implementing_module])
