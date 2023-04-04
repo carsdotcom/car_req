@@ -14,7 +14,7 @@ defmodule CarReq do
 
   ## How do I use this?
 
-  Use the `use` block. Implement the required callback `c:base_url/0`
+  Use the `use` block.
 
   ### Basic usage (all default values)
 
@@ -54,22 +54,18 @@ defmodule CarReq do
   This adds some complexity to the implementation but in the hope that this will behave "correctly"
   at runtime.
 
-  ## Required callback
-
-    - `c:base_url/0` - see `c:base_url/0`
-
   ## Instrumentation
 
   By default implementations of this module will be represented as Services in Datadog. The service name can be one of three options. By default the name is extracted from the module name. If the module name contains `External`, the service name will be snaked case atom of the module name after `External`. Example: `Engine.External.Wordpress.DefaultAdapter` would have a service name of `:wordpress_default_adapter`.
 
   If the module name does not contain `External`, the whole module name is used. Example: `Engine.Wordpress.DefaultAdapter` would have a service name of `:engine_wordpress_default_adapter`
 
-  The option `telemetry_service_name` can be used to set an explicit service name. The following example will have a service name of `:dont_put_me_in_a_box`
+  The option `datadog_service_name` can be used to set an explicit service name. The following example will have a service name of `:dont_put_me_in_a_box`
 
   ```elixir
   defmodule ExampleImpl do
     use CarReq,
-      telemetry_service_name: :dont_put_me_in_a_box
+      datadog_service_name: :dont_put_me_in_a_box
   end
   ```
   ## Options
@@ -84,7 +80,7 @@ defmodule CarReq do
     - keywords for fuse configuration. See `ReqFuse`
 
     # Instrumentation (datadog)
-    - `:telemetry_service_name` - An atom used to name Telemetry traces. This will be the resource name used in DataDog.
+    - `:datadog_service_name` - An atom used to name Telemetry traces. This will be the resource name used in DataDog.
     - `:log_function` - a 1-arity function to emit a Logger message or `:none` to skip the logging step.
 
     # retry logic
@@ -145,7 +141,10 @@ defmodule CarReq do
   alias CarReq.LogStep
 
   @schema [
-    telemetry_service_name: [
+    base_url: [
+      type: {:or, [:string, {:struct, URI}]}
+    ],
+    datadog_service_name: [
       type: :atom
     ],
     finch: [
@@ -198,12 +197,14 @@ defmodule CarReq do
     ]
   ]
 
+  @compiled_schema NimbleOptions.new!(@schema)
+
   def validate_options!(opts) do
-    NimbleOptions.validate!(opts, @schema)
+    NimbleOptions.validate!(opts, @compiled_schema)
   end
 
   def build_service_name(module_name, opts) do
-    Keyword.get_lazy(opts, :telemetry_service_name, fn ->
+    Keyword.get_lazy(opts, :datadog_service_name, fn ->
       module_name
       |> Macro.underscore()
       |> String.replace("\/", "_")
@@ -274,20 +275,10 @@ defmodule CarReq do
     end
   end
 
-  ### REQUIRED CALLBACKS
-  @doc """
-    The hostname (or authority) for the all the requests that will flow through the
-    implementation module. Finch will start a pool for every unique `{scheme, host, port}`
-    that you interact with. Setting :base_url will help make explicit what pools we have and what pools we need.
-  """
-  @callback base_url() :: String.t()
-
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
-      @behaviour CarReq
-
       @options CarReq.validate_options!(opts)
-      @telemetry_service_name CarReq.build_service_name(__MODULE__, opts)
+      @datadog_service_name CarReq.build_service_name(__MODULE__, opts)
 
       @doc """
       Make a verb agnostic HTTP request. Allow the supplied request_options to override the
@@ -311,8 +302,8 @@ defmodule CarReq do
 
       def request(request_options) do
         metadata = %{
-          telemetry_service_name:
-            Keyword.get(request_options, :telemetry_service_name, @telemetry_service_name),
+          datadog_service_name:
+            Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
           url: Keyword.get(request_options, :url),
           method: Keyword.get(request_options, :method),
           query_params: Keyword.get(request_options, :params)
@@ -353,12 +344,11 @@ defmodule CarReq do
       The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
       """
       def client(request_options) do
-        compiled_opts =
-          Keyword.merge(@options, base_url: base_url(), implementing_module: __MODULE__)
+        compiled_opts = Keyword.merge(@options, implementing_module: __MODULE__)
 
         Req.new()
         |> Req.Request.register_options([
-          :telemetry_service_name,
+          :datadog_service_name,
           :implementing_module
         ])
         |> LogStep.attach()

@@ -38,9 +38,6 @@ defmodule CarReqTest do
 
   defmodule TestImpl do
     use CarReq
-
-    @impl true
-    def base_url, do: ""
   end
 
   @moduletag :capture_log
@@ -55,9 +52,6 @@ defmodule CarReqTest do
       defmodule TestClientImpl do
         use CarReq,
           fuse_name: name
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       assert {:ok, response} =
@@ -69,31 +63,19 @@ defmodule CarReqTest do
 
     test "base_url path is maintained" do
       defmodule TestBaseURLImpl do
-        use CarReq
-
-        @impl true
-        def base_url, do: "https://www.example.com/this_path_SHOULDNT_get_dropped"
+        use CarReq, base_url: "http://www.example.com/this_path_SHOULDNT_get_dropped"
       end
 
       defmodule TestBaseTrailingSlashImpl do
-        use CarReq
-
-        @impl true
-        def base_url, do: "https://www.example.com/this_path_SHOULDNT_get_dropped/"
+        use CarReq, base_url: "http://www.example.com/this_path_SHOULDNT_get_dropped/"
       end
 
       defmodule TestBaseNoSchemeImpl do
-        use CarReq
-
-        @impl true
-        def base_url, do: "www.example.com/this_path_SHOULDNT_get_dropped"
+        use CarReq, base_url: "www.example.com/this_path_SHOULDNT_get_dropped"
       end
 
       defmodule TestBaseTrailingSlashNoSchemeImpl do
-        use CarReq
-
-        @impl true
-        def base_url, do: "www.example.com/this_path_SHOULDNT_get_dropped/"
+        use CarReq, base_url: "www.example.com/this_path_SHOULDNT_get_dropped/"
       end
 
       fake = fn %{url: uri} = request ->
@@ -154,12 +136,9 @@ defmodule CarReqTest do
         use CarReq,
           fuse_name: name,
           pool_timeout: 0
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
-      assert {:error, :pool_timeout} = TestPoolTimeout.request(url: "/")
+      assert {:error, :pool_timeout} = TestPoolTimeout.request(url: "http://www.X.co")
     end
 
     test "handles finch receive_timeout", %{name: name} do
@@ -167,15 +146,12 @@ defmodule CarReqTest do
         use CarReq,
           receive_timeout: 0,
           fuse_name: name
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       assert {:error, %Mint.TransportError{reason: :timeout}} =
                TestFinchTimeout.request(
                  method: :get,
-                 url: "/electric-flying-cars",
+                 url: "http://www.w.co/electric-flying-cars",
                  adapter: &Req.Steps.run_finch/1
                )
     end
@@ -184,9 +160,6 @@ defmodule CarReqTest do
       assert_raise NimbleOptions.ValidationError, fn ->
         defmodule TestRaiseName do
           use CarReq, implementing_module: :my_custom_default_name
-
-          @impl true
-          def base_url, do: ""
         end
 
         TestRaiseName.request(method: :get, url: "http://httpstat.us/200")
@@ -196,9 +169,6 @@ defmodule CarReqTest do
     test "returns Req.Response" do
       defmodule TestDefaultResponse do
         use CarReq
-
-        @impl true
-        def base_url, do: ""
       end
 
       assert {:ok, %Req.Response{}} =
@@ -212,9 +182,6 @@ defmodule CarReqTest do
     test "sets retry false" do
       defmodule TestRetryResponse do
         use CarReq, retry: false
-
-        @impl true
-        def base_url, do: ""
       end
 
       assert {:ok, %Req.Response{}} =
@@ -229,9 +196,6 @@ defmodule CarReqTest do
       assert_raise NimbleOptions.ValidationError, fn ->
         defmodule TestRetryTrue do
           use CarReq, retry: true
-
-          @impl true
-          def base_url, do: ""
         end
       end
     end
@@ -266,9 +230,6 @@ defmodule CarReqTest do
     test "circuit breaker is configured default" do
       defmodule TestFuseDefault do
         use CarReq
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       TestFuseDefault
@@ -283,9 +244,6 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 300}},
           fuse_name: name
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestFuseImpl.request(
@@ -313,9 +271,6 @@ defmodule CarReqTest do
           retry: :safe,
           max_retries: 2,
           retry_delay: 50
-
-        @impl true
-        def base_url, do: ""
       end
 
       exception = fn request ->
@@ -345,9 +300,6 @@ defmodule CarReqTest do
           retry: :safe,
           max_retries: 2,
           retry_delay: &CarReqTest.delay/1
-
-        @impl true
-        def base_url, do: ""
       end
 
       # retries with bad request and circuit is closed.
@@ -385,9 +337,6 @@ defmodule CarReqTest do
       defmodule TestFuseDefaultNameImpl do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 30_000}}
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestFuseDefaultNameImpl.request(
@@ -413,9 +362,6 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 30_000}},
           fuse_name: My.Test.Fuse
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestFuseNameImpl.request(
@@ -441,9 +387,6 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 30_000}},
           fuse_name: My.Test.Fuse
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestRuntimeFuseNameImpl.request(
@@ -484,9 +427,6 @@ defmodule CarReqTest do
       defmodule TestDefaultFuseImpl do
         use CarReq,
           fuse_name: name
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestDefaultFuseImpl.request(
@@ -501,9 +441,6 @@ defmodule CarReqTest do
     test "fuse disabled, skips fuse", %{name: name} do
       defmodule TestNoFuseImpl do
         use CarReq, fuse_opts: :disabled
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestNoFuseImpl.request(
@@ -526,9 +463,6 @@ defmodule CarReqTest do
     test "fuse_opts: :disabled as request option, skips fuse", %{name: name} do
       defmodule TestFuseDisabledImpl do
         use CarReq
-
-        @impl true
-        def base_url, do: ""
       end
 
       TestFuseDisabledImpl.request(
@@ -569,8 +503,6 @@ defmodule CarReqTest do
       defmodule TestLogEmission do
         use CarReq, log_function: &__MODULE__.log_function/1
         require Logger
-        @impl true
-        def base_url, do: ""
 
         def log_function({_request, response}) do
           if response.status >= 400 do
@@ -596,8 +528,6 @@ defmodule CarReqTest do
     test ":none don't emit log messages" do
       defmodule TestLogSuppression do
         use CarReq, log_function: :none
-        @impl true
-        def base_url, do: ""
       end
 
       logs =
@@ -616,9 +546,6 @@ defmodule CarReqTest do
       defmodule TestBadFinch do
         use CarReq,
           finch: CarReq.Finch
-
-        @impl true
-        def base_url, do: ""
       end
 
       resp =
@@ -637,9 +564,6 @@ defmodule CarReqTest do
       defmodule TestFinch do
         use CarReq,
           finch: CarReq.FinchSupervisor
-
-        @impl true
-        def base_url, do: ""
       end
 
       # set a receive timeout, long enough that we get a pool worker from the Finch supervisor, but
@@ -660,9 +584,6 @@ defmodule CarReqTest do
 
       defmodule TestRuntimeFinch do
         use CarReq
-
-        @impl true
-        def base_url, do: ""
       end
 
       # set a receive timeout long enough that we get a pool worker from the Finch supervisor, but
@@ -729,9 +650,6 @@ defmodule CarReqTest do
       defmodule PoolTimeoutClient do
         use CarReq,
           pool_timeout: 0
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       PoolTimeoutClient.request(url: "http://www.sssnakes.com")
@@ -743,12 +661,13 @@ defmodule CarReqTest do
       defmodule TimeoutClient do
         use CarReq,
           receive_timeout: 0
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
-      TimeoutClient.request(method: :get, url: "/200", adapter: &Req.Steps.run_finch/1)
+      TimeoutClient.request(
+        method: :get,
+        url: "http://www.sssnakes.com",
+        adapter: &Req.Steps.run_finch/1
+      )
 
       assert_receive {:event, [:http_car_req, :request, :stop], _,
                       %{reason: %Mint.TransportError{reason: :timeout}}}
@@ -757,44 +676,35 @@ defmodule CarReqTest do
     test "allows service name to be set on client" do
       defmodule ServiceNameClient do
         use CarReq,
-          telemetry_service_name: :foo_bar_baz
-
-        @impl true
-        def base_url, do: "https://www.example.com"
+          datadog_service_name: :foo_bar_baz
       end
 
       ServiceNameClient.request(method: :get, url: "/200", adapter: &Adapter.success/1)
 
       assert_receive {:event, [:http_car_req, :request, :start], _,
-                      %{telemetry_service_name: :foo_bar_baz}}
+                      %{datadog_service_name: :foo_bar_baz}}
     end
 
     test "allows service name to be set per-request on the client" do
       defmodule ServiceNameRuntimeClient do
         use CarReq,
-          telemetry_service_name: :foo_bar_baz
-
-        @impl true
-        def base_url, do: "https://www.example.com"
+          datadog_service_name: :foo_bar_baz
       end
 
       ServiceNameRuntimeClient.request(
         method: :get,
         url: "/200",
         adapter: &Adapter.success/1,
-        telemetry_service_name: :guu_car_caz
+        datadog_service_name: :guu_car_caz
       )
 
       assert_receive {:event, [:http_car_req, :request, :start], _,
-                      %{telemetry_service_name: :guu_car_caz}}
+                      %{datadog_service_name: :guu_car_caz}}
     end
 
     test "determines service name for external namespaced clients" do
       defmodule Test.Foo.Bar.External.Service.ServiceNameClient do
         use CarReq
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       Test.Foo.Bar.External.Service.ServiceNameClient.request(
@@ -804,15 +714,12 @@ defmodule CarReqTest do
       )
 
       assert_receive {:event, [:http_car_req, :request, :start], _,
-                      %{telemetry_service_name: :service_service_name_client}}
+                      %{datadog_service_name: :service_service_name_client}}
     end
 
     test "defaults to the full module name" do
       defmodule Test.Foo.Bar.Service.ServiceNameClient do
         use CarReq
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       Test.Foo.Bar.Service.ServiceNameClient.request(
@@ -823,9 +730,31 @@ defmodule CarReqTest do
 
       assert_receive {:event, [:http_car_req, :request, :start], _,
                       %{
-                        telemetry_service_name:
+                        datadog_service_name:
                           :car_req_test_test_foo_bar_service_service_name_client
                       }}
+    end
+
+    test "set base_url with a string" do
+      base_url = "http://www.example.com"
+
+      defmodule Test.StringURL do
+        use CarReq, base_url: base_url
+      end
+
+      client = Test.StringURL.client([])
+      assert client.options.base_url == base_url
+    end
+
+    test "set base_url with a %URI{}" do
+      base_url = URI.parse("http://www.example.com")
+
+      defmodule Test.StructURL do
+        use CarReq, base_url: base_url
+      end
+
+      client = Test.StructURL.client([])
+      assert client.options.base_url == base_url
     end
   end
 
@@ -834,9 +763,6 @@ defmodule CarReqTest do
       defmodule TestClientDupeHeaderImpl do
         use CarReq,
           fuse_name: name
-
-        @impl true
-        def base_url, do: "https://www.example.com"
       end
 
       auth_header = [{"authorization", "Token Shh, it's a secret"}]
