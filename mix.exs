@@ -1,6 +1,10 @@
 defmodule CarReq.MixProject do
   use Mix.Project
 
+  @name "CarReq"
+  @source_url "https://github.com/carsdotcom/car_req"
+  @version "0.2.2"
+
   def project do
     [
       app: :car_req,
@@ -25,6 +29,7 @@ defmodule CarReq.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false, optional: true, app: false},
       # HTTP Client deps
       {:nimble_options, "~> 0.4"},
       {:req, "~> 0.3"},
@@ -37,4 +42,18 @@ defmodule CarReq.MixProject do
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end
+
+  defp docs do
+    [
+      # logo: "assets/fuse.png",
+      source_ref: "v#{@version}",
+      source_url: @source_url,
+      main: "readme",
+      extras: [
+        "README.md",
+        "CHANGELOG.md"
+      ]
+    ]
+  end
+
 end
