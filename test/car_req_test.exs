@@ -461,28 +461,26 @@ defmodule CarReqTest do
     end
 
     test "fuse_opts: :disabled as request option, skips fuse", %{name: name} do
-      defmodule TestFuseDisabledImpl do
-        use CarReq
-      end
-
-      TestFuseDisabledImpl.request(
+      TestImpl.request(
         method: :get,
         url: "http://httpstat.us/500",
-        adapter: &Adapter.success/1
+        adapter: &Adapter.success/1,
+        fuse_name: name
       )
 
       Enum.each(1..11, fn _ ->
-        :fuse.melt(TestFuseDisabledImpl)
+        :fuse.melt(name)
       end)
 
-      assert :blown = :fuse.ask(TestFuseDisabledImpl, :sync)
+      assert :blown = :fuse.ask(name, :sync)
 
       assert {:ok, %Req.Response{}} =
-               TestFuseDisabledImpl.request(
+               TestImpl.request(
                  method: :get,
                  url: "http://httpstat.us/200",
                  adapter: &Adapter.success/1,
-                 fuse_opts: :disabled
+                 fuse_opts: :disabled,
+                 fuse_name: name
                )
     end
 

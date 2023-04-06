@@ -3,16 +3,18 @@ defmodule CarReq.MixProject do
 
   @name "CarReq"
   @source_url "https://github.com/carsdotcom/car_req"
-  @version "0.2.2"
+  @version "0.1.0"
 
   def project do
     [
       app: :car_req,
       elixirc_paths: elixirc_paths(Mix.env()),
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: docs(),
+      name: @name
     ]
   end
 
