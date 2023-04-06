@@ -10,7 +10,7 @@ defmodule CarReq.MixProject do
       app: :car_req,
       elixirc_paths: elixirc_paths(Mix.env()),
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
