@@ -1,5 +1,8 @@
 # CarReq
 
+[![CI](https://github.com/carsdotcom/car_req/actions/workflows/elixir.yml/badge.svg)](https://github.com/carsdotcom/car_req/actions/workflows/elixir.yml)
+
+
 <!-- MDOC -->
 CarReq is an opinionated framework wrapper for Req, which implements plug (-and-play) discrete steps in an
 HTTP call. Req is itself an abstraction on the underlying HTTP libraries, the adapter: Finch.
