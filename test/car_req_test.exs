@@ -786,6 +786,23 @@ defmodule CarReqTest do
 
       assert client.headers == auth_header
     end
+
+    test "a client impl can set additional keys" do
+      defmodule TestClientOverride do
+        use CarReq
+        def client(opts) do
+          opts
+          |> super()
+          |> Req.Request.register_options([:override_value])
+          |> Req.update([override_value: :my_custom_value])
+        end
+      end
+
+      client = TestClientOverride.client([])
+      assert client.options.override_value == :my_custom_value
+      # assert other value(s) in the default impl are still set as expected.
+      assert client.options.fuse_name == TestClientOverride
+    end
   end
 
   @doc """

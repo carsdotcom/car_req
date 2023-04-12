@@ -160,10 +160,13 @@ defmodule CarReq do
     end
   end
 
+  @callback client(keyword()) :: Req.Request.t()
+
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
       @options CarReq.validate_options!(opts)
       @datadog_service_name CarReq.build_service_name(__MODULE__, opts)
+      @behaviour CarReq
 
       @doc """
       Make a verb agnostic HTTP request. Allow the supplied request_options to override the
@@ -184,7 +187,6 @@ defmodule CarReq do
 
         A full list of options [can be found here.](https://hexdocs.pm/req/Req.html#request/1-options)
       """
-
       def request(request_options) do
         metadata = %{
           datadog_service_name:
@@ -228,6 +230,7 @@ defmodule CarReq do
 
       The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
       """
+      @impl true
       def client(request_options) do
         compiled_opts = Keyword.merge(@options, implementing_module: __MODULE__)
 
@@ -243,6 +246,8 @@ defmodule CarReq do
         |> Req.update(compiled_opts)
         |> Req.update(request_options)
       end
+
+      defoverridable client: 1
     end
   end
 end
