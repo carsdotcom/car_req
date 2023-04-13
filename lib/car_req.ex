@@ -9,8 +9,7 @@ defmodule CarReq do
 
   @schema [
     base_url: [
-      # type: {:or, [:string, {:struct, URI}]} NimbleOptions doesn't support struct in this version
-      type: {:custom, __MODULE__, :validate_url, []}
+      type: :string
     ],
     datadog_service_name: [
       type: :atom
@@ -51,7 +50,6 @@ defmodule CarReq do
       type: :atom
     ],
     fuse_opts: [
-      # type: {:in, [:disabled, :tuple]} NimbleOptions doesn't support tuple in this version
       type: {:custom, __MODULE__, :validate_fuse_opts, []}
     ],
     fuse_verbose: [
@@ -160,6 +158,29 @@ defmodule CarReq do
     end
   end
 
+  @doc """
+  Configure the Req struct, attach the circuit breaker and set request settings (`@options`)
+
+  The :fuse (circuit breaker) is configured by default and opted-out by setting `fuse_opts: :disabled`
+
+  The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
+  """
+  def client(request_options, config_options, module) do
+    compiled_opts = Keyword.merge(config_options, implementing_module: module)
+
+    Req.new()
+    |> Req.Request.register_options([
+      :datadog_service_name,
+      :implementing_module
+    ])
+    |> LogStep.attach()
+    |> CarReq.attach_circuit_breaker(compiled_opts, request_options)
+    # Order matters. The `compiled_opts` set the baseline settings.
+    # The `request_options` are specific to one request so they override the baseline.
+    |> Req.update(compiled_opts)
+    |> Req.update(request_options)
+  end
+
   @callback client(keyword()) :: Req.Request.t()
 
   defmacro __using__(opts) do
@@ -223,28 +244,9 @@ defmodule CarReq do
         end)
       end
 
-      @doc """
-      Configure the Req struct, attach the circuit breaker and set request settings (`@options`)
-
-      The :fuse (circuit breaker) is configured by default and opted-out by setting `fuse_opts: :disabled`
-
-      The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
-      """
-      @impl true
+      @impl CarReq
       def client(request_options) do
-        compiled_opts = Keyword.merge(@options, implementing_module: __MODULE__)
-
-        Req.new()
-        |> Req.Request.register_options([
-          :datadog_service_name,
-          :implementing_module
-        ])
-        |> LogStep.attach()
-        |> CarReq.attach_circuit_breaker(compiled_opts, request_options)
-        # Order matters. The `compiled_opts` set the baseline settings.
-        # The `request_options` are specific to one request so they override the baseline.
-        |> Req.update(compiled_opts)
-        |> Req.update(request_options)
+        CarReq.client(request_options, @options, __MODULE__)
       end
 
       defoverridable client: 1

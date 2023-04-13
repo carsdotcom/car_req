@@ -752,21 +752,10 @@ defmodule CarReqTest do
       assert client.options.base_url == base_url
     end
 
-    test "set base_url with a %URI{}" do
-      base_url = URI.parse("http://www.example.com")
-
-      defmodule Test.StructURL do
-        use CarReq, base_url: base_url
-      end
-
-      client = Test.StructURL.client([])
-      assert client.options.base_url == base_url
-    end
-
     test "when base_url is invalid" do
-      base_url = :"not-a-string-or-URI"
+      base_url = :"not-a-string"
 
-      assert_raise NimbleOptions.ValidationError, "invalid value for :base_url option: :base_url must be a String or %URI{}", fn ->
+      assert_raise NimbleOptions.ValidationError, "invalid value for :base_url option: expected string, got: :\"not-a-string\"", fn ->
         defmodule Test.InvalidURL do
           use CarReq, base_url: base_url
         end
