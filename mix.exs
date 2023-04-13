@@ -57,5 +57,4 @@ defmodule CarReq.MixProject do
       ]
     ]
   end
-
 end

@@ -485,11 +485,13 @@ defmodule CarReqTest do
     end
 
     test "fuse_opts invalid raises" do
-      assert_raise NimbleOptions.ValidationError, "invalid value for :fuse_opts option: :fuse_opts must be a two-element tuple or the atom :disabled", fn ->
-        defmodule TestInvalidFuseImpl do
-          use CarReq, fuse_opts: %{an_invalid: :map}
-        end
-      end
+      assert_raise NimbleOptions.ValidationError,
+                   "invalid value for :fuse_opts option: :fuse_opts must be a two-element tuple or the atom :disabled",
+                   fn ->
+                     defmodule TestInvalidFuseImpl do
+                       use CarReq, fuse_opts: %{an_invalid: :map}
+                     end
+                   end
     end
 
     test "emit logs for 500 + statuses" do
@@ -755,11 +757,13 @@ defmodule CarReqTest do
     test "when base_url is invalid" do
       base_url = :"not-a-string"
 
-      assert_raise NimbleOptions.ValidationError, "invalid value for :base_url option: expected string, got: :\"not-a-string\"", fn ->
-        defmodule Test.InvalidURL do
-          use CarReq, base_url: base_url
-        end
-      end
+      assert_raise NimbleOptions.ValidationError,
+                   "invalid value for :base_url option: expected string, got: :\"not-a-string\"",
+                   fn ->
+                     defmodule Test.InvalidURL do
+                       use CarReq, base_url: base_url
+                     end
+                   end
     end
   end
 
@@ -779,11 +783,12 @@ defmodule CarReqTest do
     test "a client impl can set additional keys" do
       defmodule TestClientOverride do
         use CarReq
+
         def client(opts) do
           opts
           |> super()
           |> Req.Request.register_options([:override_value])
-          |> Req.update([override_value: :my_custom_value])
+          |> Req.update(override_value: :my_custom_value)
         end
       end
 
