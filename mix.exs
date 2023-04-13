@@ -3,7 +3,7 @@ defmodule CarReq.MixProject do
 
   @name "CarReq"
   @source_url "https://github.com/carsdotcom/car_req"
-  @version "0.1.1"
+  @version "0.1.2"
 
   def project do
     [
@@ -47,7 +47,6 @@ defmodule CarReq.MixProject do
 
   defp docs do
     [
-      # logo: "assets/fuse.png",
       source_ref: "v#{@version}",
       source_url: @source_url,
       main: "readme",
