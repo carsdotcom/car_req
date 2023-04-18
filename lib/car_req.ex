@@ -142,15 +142,15 @@ defmodule CarReq do
   """
 
   @spec attach_circuit_breaker(Req.Request.t(), keyword(), keyword()) :: Req.Request.t()
-  def attach_circuit_breaker(request, opts, request_options) do
+  def attach_circuit_breaker(request, opts, request_options \\ []) do
     if Keyword.get(opts, :fuse_opts) == :disabled ||
          Keyword.get(request_options, :fuse_opts) == :disabled do
       Req.Request.register_options(request, [
+        :fuse_melt_func,
+        :fuse_mode,
         :fuse_name,
         :fuse_opts,
-        :fuse_verbose,
-        :fuse_mode,
-        :fuse_melt_func
+        :fuse_verbose
       ])
     else
       opts = Keyword.put_new(opts, :fuse_name, Keyword.get(opts, :implementing_module))
@@ -165,8 +165,11 @@ defmodule CarReq do
 
   The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
   """
-  def client(request_options, config_options, module) do
-    compiled_opts = Keyword.merge(config_options, implementing_module: module)
+  def client(client_options, compiled_options, module) do
+    options =
+      compiled_options
+      |> Keyword.merge(implementing_module: module)
+      |> Keyword.merge(client_options)
 
     Req.new()
     |> Req.Request.register_options([
@@ -174,14 +177,11 @@ defmodule CarReq do
       :implementing_module
     ])
     |> LogStep.attach()
-    |> CarReq.attach_circuit_breaker(compiled_opts, request_options)
-    # Order matters. The `compiled_opts` set the baseline settings.
-    # The `request_options` are specific to one request so they override the baseline.
-    |> Req.update(compiled_opts)
-    |> Req.update(request_options)
+    |> CarReq.attach_circuit_breaker(options)
+    |> Req.update(options)
   end
 
-  @callback client(keyword()) :: Req.Request.t()
+  @callback client_options() :: keyword()
 
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
@@ -244,12 +244,17 @@ defmodule CarReq do
         end)
       end
 
-      @impl CarReq
-      def client(request_options) do
-        CarReq.client(request_options, @options, __MODULE__)
+      @doc "Build up the Req client; merge @options, client_options/0, and request_options"
+      def client(request_options \\ []) do
+        opts = Keyword.merge(client_options(), request_options)
+        CarReq.client(opts, @options, __MODULE__)
       end
 
-      defoverridable client: 1
+      @doc "Set runtime options. Implement this callback for settings that will be dynamic per env."
+      @impl CarReq
+      def client_options, do: []
+
+      defoverridable client_options: 0
     end
   end
 end

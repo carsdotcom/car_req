@@ -61,6 +61,38 @@ defmodule CarReqTest do
       :fuse.remove(TestClientImpl)
     end
 
+    test "impl client_options/0 with defaults", %{name: name} do
+      defmodule TestClient0Impl do
+        use CarReq
+
+        @impl true
+        def client_options do
+          [
+            base_url: "https://www.cars.com/",
+            pool_timeout: 100,
+            receive_timeout: 0,
+            fuse_opts: {{:standard, 0, 10_000}, {:reset, 30_000}}
+          ]
+        end
+      end
+
+      # client should still set CarReq defaults
+      # client_options should override the CarReq defaults
+      client = TestClient0Impl.client()
+      assert client.options.pool_timeout == 100
+      assert client.options.receive_timeout == 0
+      assert client.options.retry == false
+      assert client.options.fuse_name == TestClient0Impl
+
+      assert {:error, _error} = TestClient0Impl.request(method: :get)
+
+      assert {:error, %RuntimeError{message: "circuit breaker is open"}} =
+               TestClient0Impl.request(method: :get)
+
+      assert :fuse.ask(TestClient0Impl, :sync) == :blown
+      :fuse.remove(TestClient0Impl)
+    end
+
     test "base_url path is maintained" do
       defmodule TestBaseURLImpl do
         use CarReq, base_url: "http://www.example.com/this_path_SHOULDNT_get_dropped"
@@ -774,28 +806,10 @@ defmodule CarReqTest do
           fuse_name: name
       end
 
-      auth_header = [{"authorization", "Token Shh, it's a secret"}]
-      client = TestClientDupeHeaderImpl.client(headers: auth_header)
-
-      assert client.headers == auth_header
-    end
-
-    test "a client impl can set additional keys" do
-      defmodule TestClientOverride do
-        use CarReq
-
-        def client(opts) do
-          opts
-          |> super()
-          |> Req.Request.register_options([:override_value])
-          |> Req.update(override_value: :my_custom_value)
-        end
-      end
-
-      client = TestClientOverride.client([])
-      assert client.options.override_value == :my_custom_value
-      # assert other value(s) in the default impl are still set as expected.
-      assert client.options.fuse_name == TestClientOverride
+      secret = "Token Shh, it's a secret"
+      not_auth_header = [{"NOTauthorization", secret}]
+      client = TestClientDupeHeaderImpl.client(headers: not_auth_header, auth: secret)
+      assert client.headers == not_auth_header
     end
   end
 
