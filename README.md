@@ -31,7 +31,7 @@ Use the `use` block.
 ```elixir
   defmodule ExampleImpl do
     use CarReq,
-      base_url, "https://www.cars.com/",
+      base_url: "https://www.cars.com/",
       pool_timeout: 100,
       receive_timeout: 999,
       retry: :safe,
@@ -49,9 +49,15 @@ correctly at runtime. It's not 100% clear what the value would contain at runtim
 
 In order to help mitigate this possibility, runtime values must be wrapped in functions to
 ensure they are evaluated (without ambiguity) at runtime.
-The callback allows deferring the evaluation of the value to an explicitly runtime concern.
 This adds some complexity to the implementation but in the hope that this will behave "correctly"
-at runtime.
+at runtime. It is highly recommended to implement the `client_options/0` callback for all dynamic
+settings.
+
+For example, the `base_url` value is likely to change per environment. Setting this value in the
+`use` block can "bake" the value at compile-time and then the value may not change as intended with
+deployments. (Ask me how I know this ;) )
+
+The `client_options/0` callback is provided to manage explicitly runtime concerns.
 
 ## Instrumentation
 
@@ -105,7 +111,7 @@ Override any Req option by passing the option into the underlying Req.request fu
 ```elixir
   defmodule ExampleImpl do
     use CarReq
-      base_url, "https://www.cars.com/"
+      base_url: "https://www.cars.com/"
   end
   fake_adapter = fn request ->
     {request, Req.Response.new()}
@@ -147,7 +153,7 @@ The package can be installed by adding `car_req` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:car_req, git: "git@github.com:carsdotcom/car_req.git", tag: "0.1.0"}
+    {:car_req, git: "git@github.com:carsdotcom/car_req.git", tag: "0.1.2"}
   ]
 end
 ```
