@@ -69,20 +69,21 @@ defmodule CarReqTest do
         def client_options do
           [
             base_url: "https://www.cars.com/",
-            pool_timeout: 100,
+            pool_timeout: 99,
             receive_timeout: 0,
             fuse_opts: {{:standard, 0, 10_000}, {:reset, 30_000}}
           ]
         end
       end
 
-      # client should still set CarReq defaults
+      # client should still have all CarReq defaults set
       # client_options should override the CarReq defaults
       client = TestClient0Impl.client()
-      assert client.options.pool_timeout == 100
+      assert client.options.pool_timeout == 99
       assert client.options.receive_timeout == 0
       assert client.options.retry == false
       assert client.options.fuse_name == TestClient0Impl
+      assert client.options.implementing_module == TestClient0Impl
 
       assert {:error, _error} = TestClient0Impl.request(method: :get)
 
@@ -193,8 +194,14 @@ defmodule CarReqTest do
         defmodule TestRaiseName do
           use CarReq, implementing_module: :my_custom_default_name
         end
+      end
+    end
 
-        TestRaiseName.request(method: :get, url: "http://httpstat.us/200")
+    test "setting any unsupported key, raises", %{name: name} do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        defmodule TestRaiseName2 do
+          use CarReq, mathematical: :its_invalid
+        end
       end
     end
 
@@ -252,8 +259,12 @@ defmodule CarReqTest do
     end
 
     test "only valid request_options are permitted" do
+      # during request/1 the errors are rescued
+      assert {:error, "%ArgumentError{message: \"unknown option :mathematical\"}"} =
+               TestImpl.request(mathematical: :get)
+
       assert_raise ArgumentError, "unknown option :mathematical", fn ->
-        TestImpl.request(mathematical: :get)
+        TestImpl.client(mathematical: :get)
       end
     end
   end
@@ -796,6 +807,34 @@ defmodule CarReqTest do
                        use CarReq, base_url: base_url
                      end
                    end
+    end
+  end
+
+  describe "merge_options/1" do
+    defmodule Test.MergeOpts1 do
+      use CarReq,
+        receive_timeout: 100,
+        pool_timeout: 200
+
+      @impl true
+      def client_options do
+        [
+          receive_timeout: 300,
+          pool_timeout: 400
+        ]
+      end
+    end
+
+    test "merges client_options onto use options" do
+      merged = Test.MergeOpts1.merge_options([])
+      assert Keyword.get(merged, :receive_timeout) == 300
+      assert Keyword.get(merged, :pool_timeout) == 400
+    end
+
+    test "merges request_options onto client_options and use options" do
+      merged = Test.MergeOpts1.merge_options(receive_timeout: 409, pool_timeout: 401)
+      assert Keyword.get(merged, :receive_timeout) == 409
+      assert Keyword.get(merged, :pool_timeout) == 401
     end
   end
 

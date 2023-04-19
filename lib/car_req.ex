@@ -165,12 +165,7 @@ defmodule CarReq do
 
   The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
   """
-  def client(client_options, compiled_options, module) do
-    options =
-      compiled_options
-      |> Keyword.merge(implementing_module: module)
-      |> Keyword.merge(client_options)
-
+  def client(options) do
     Req.new()
     |> Req.Request.register_options([
       :datadog_service_name,
@@ -209,20 +204,15 @@ defmodule CarReq do
         A full list of options [can be found here.](https://hexdocs.pm/req/Req.html#request/1-options)
       """
       def request(request_options) do
-        metadata = %{
-          datadog_service_name:
-            Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
-          url: Keyword.get(request_options, :url),
-          method: Keyword.get(request_options, :method),
-          query_params: Keyword.get(request_options, :params)
-        }
-
-        client = client(request_options)
+        metadata = telemetry_metadata(request_options)
 
         # :telemetry.span is used so that the status code of the request, or the exception reason, can be added to the stop event's metadata.
         :telemetry.span([:http_car_req, :request], metadata, fn ->
           try do
-            case Req.request(client) do
+            request_options
+            |> client()
+            |> Req.request()
+            |> case do
               {:ok, response_struct} = response ->
                 {response, Map.merge(metadata, %{status_code: response_struct.status})}
 
@@ -244,10 +234,32 @@ defmodule CarReq do
         end)
       end
 
-      @doc "Build up the Req client; merge @options, client_options/0, and request_options"
+      @doc """
+      client/1 build the Req.Request struct and invokes merge_options/1 to 'correctly' merge the
+      various options.
+      """
       def client(request_options \\ []) do
-        opts = Keyword.merge(client_options(), request_options)
-        CarReq.client(opts, @options, __MODULE__)
+        request_options
+        |> merge_options()
+        |> CarReq.client()
+      end
+
+      @doc "Merge the various options specific onto general: @options -> client_options/0 -> request_options"
+      def merge_options(request_options) do
+        @options
+        |> Keyword.merge(implementing_module: __MODULE__)
+        |> Keyword.merge(client_options())
+        |> Keyword.merge(request_options)
+      end
+
+      defp telemetry_metadata(request_options) do
+        %{
+          datadog_service_name:
+            Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
+          url: Keyword.get(request_options, :url),
+          method: Keyword.get(request_options, :method),
+          query_params: Keyword.get(request_options, :params)
+        }
       end
 
       @doc "Set runtime options. Implement this callback for settings that will be dynamic per env."
