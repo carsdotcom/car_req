@@ -142,15 +142,15 @@ defmodule CarReq do
   """
 
   @spec attach_circuit_breaker(Req.Request.t(), keyword(), keyword()) :: Req.Request.t()
-  def attach_circuit_breaker(request, opts, request_options) do
+  def attach_circuit_breaker(request, opts, request_options \\ []) do
     if Keyword.get(opts, :fuse_opts) == :disabled ||
          Keyword.get(request_options, :fuse_opts) == :disabled do
       Req.Request.register_options(request, [
+        :fuse_melt_func,
+        :fuse_mode,
         :fuse_name,
         :fuse_opts,
-        :fuse_verbose,
-        :fuse_mode,
-        :fuse_melt_func
+        :fuse_verbose
       ])
     else
       opts = Keyword.put_new(opts, :fuse_name, Keyword.get(opts, :implementing_module))
@@ -165,23 +165,18 @@ defmodule CarReq do
 
   The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
   """
-  def client(request_options, config_options, module) do
-    compiled_opts = Keyword.merge(config_options, implementing_module: module)
-
+  def client(options) do
     Req.new()
     |> Req.Request.register_options([
       :datadog_service_name,
       :implementing_module
     ])
     |> LogStep.attach()
-    |> CarReq.attach_circuit_breaker(compiled_opts, request_options)
-    # Order matters. The `compiled_opts` set the baseline settings.
-    # The `request_options` are specific to one request so they override the baseline.
-    |> Req.update(compiled_opts)
-    |> Req.update(request_options)
+    |> CarReq.attach_circuit_breaker(options)
+    |> Req.update(options)
   end
 
-  @callback client(keyword()) :: Req.Request.t()
+  @callback client_options() :: keyword()
 
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
@@ -209,20 +204,15 @@ defmodule CarReq do
         A full list of options [can be found here.](https://hexdocs.pm/req/Req.html#request/1-options)
       """
       def request(request_options) do
-        metadata = %{
-          datadog_service_name:
-            Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
-          url: Keyword.get(request_options, :url),
-          method: Keyword.get(request_options, :method),
-          query_params: Keyword.get(request_options, :params)
-        }
-
-        client = client(request_options)
+        metadata = telemetry_metadata(request_options)
 
         # :telemetry.span is used so that the status code of the request, or the exception reason, can be added to the stop event's metadata.
         :telemetry.span([:http_car_req, :request], metadata, fn ->
           try do
-            case Req.request(client) do
+            request_options
+            |> client()
+            |> Req.request()
+            |> case do
               {:ok, response_struct} = response ->
                 {response, Map.merge(metadata, %{status_code: response_struct.status})}
 
@@ -244,12 +234,39 @@ defmodule CarReq do
         end)
       end
 
-      @impl CarReq
-      def client(request_options) do
-        CarReq.client(request_options, @options, __MODULE__)
+      @doc """
+      client/1 build the Req.Request struct and invokes merge_options/1 to 'correctly' merge the
+      various options.
+      """
+      def client(request_options \\ []) do
+        request_options
+        |> merge_options()
+        |> CarReq.client()
       end
 
-      defoverridable client: 1
+      @doc "Merge the various options specific onto general: @options -> client_options/0 -> request_options"
+      def merge_options(request_options) do
+        @options
+        |> Keyword.merge(implementing_module: __MODULE__)
+        |> Keyword.merge(client_options())
+        |> Keyword.merge(request_options)
+      end
+
+      defp telemetry_metadata(request_options) do
+        %{
+          datadog_service_name:
+            Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
+          url: Keyword.get(request_options, :url),
+          method: Keyword.get(request_options, :method),
+          query_params: Keyword.get(request_options, :params)
+        }
+      end
+
+      @doc "Set runtime options. Implement this callback for settings that will be dynamic per env."
+      @impl CarReq
+      def client_options, do: []
+
+      defoverridable client_options: 0
     end
   end
 end
