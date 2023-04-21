@@ -59,6 +59,27 @@ deployments. (Ask me how I know this ;) )
 
 The `client_options/0` callback is provided to manage explicitly runtime concerns.
 
+### Configured usage (with client_options)
+
+```elixir
+  defmodule ExampleImpl do
+    use CarReq,
+      pool_timeout: 100,
+      receive_timeout: 999,
+      retry: :safe,
+      max_retries: 3,
+      fuse_opts: {{:standard, 5, 10_000}, {:reset, 30_000}}
+
+    @impl true
+    def client_options do
+      [
+        # Any values that may need to be runtime dynamic.
+        base_url: Application.get_env(:car_req, __MODULE__, "https://www.cars.com/")
+      ]
+    end
+  end
+```
+
 ## Instrumentation
 
 By default implementations of this module will be represented as Services in Datadog. The service name can be one of three options. By default the name is extracted from the module name. If the module name contains `External`, the service name will be snaked case atom of the module name after `External`. Example: `Engine.External.Wordpress.DefaultAdapter` would have a service name of `:wordpress_default_adapter`.
