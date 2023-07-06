@@ -3,7 +3,7 @@ defmodule CarReq.MixProject do
 
   @name "CarReq"
   @source_url "https://github.com/carsdotcom/car_req"
-  @version "0.2.0"
+  @version "0.2.1"
 
   def project do
     [
@@ -33,15 +33,12 @@ defmodule CarReq.MixProject do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false, optional: true, app: false},
       # HTTP Client deps
-      {:nimble_options, "~> 0.4"},
+      {:nimble_options, "~> 0.4 or ~> 1.0"},
       {:req, "~> 0.3"},
       {:req_fuse, "~> 0.2"},
       # telemetry is a transient dependency through req (finch)
       # but CarReq emits telemetry, so we'll be explicit about it as a dependency.
       {:telemetry, ">= 0.0.0"}
-
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end
 
