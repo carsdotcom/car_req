@@ -311,7 +311,7 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 300}},
           fuse_name: name,
-          retry: :safe,
+          retry: :safe_transient,
           max_retries: 2,
           retry_delay: 50
       end
@@ -340,7 +340,7 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 300}},
           fuse_name: name,
-          retry: :safe,
+          retry: :safe_transient,
           max_retries: 2,
           retry_delay: &CarReqTest.delay/1
       end

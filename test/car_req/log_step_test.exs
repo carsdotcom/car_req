@@ -11,7 +11,7 @@ defmodule LogStepTest do
   describe "attach/3" do
     test "no logger behavior when :none" do
       module = This.Name.Should.Not.Appear.In.The.Log
-      options = [implementing_module: module, log_function: :none, retry: :never]
+      options = [implementing_module: module, log_function: :none, retry: false]
 
       req =
         Req.new(adapter: &Adapter.failed/1)
@@ -29,7 +29,7 @@ defmodule LogStepTest do
     end
 
     test "log_function as atom other than `:none` raises exception" do
-      options = [log_function: :what_did_you_expect_to_happen?, retry: :never]
+      options = [log_function: :what_did_you_expect_to_happen?, retry: false]
 
       req =
         Req.new(adapter: &Adapter.failed/1)
@@ -62,7 +62,7 @@ defmodule LogStepTest do
 
     test "emit log in default logger behavior when log_fn not configured and status >= 500" do
       module = This.Test.Module
-      options = [implementing_module: module, retry: :never]
+      options = [implementing_module: module, retry: false]
 
       stub_adapter = fn request ->
         response =
@@ -93,7 +93,7 @@ defmodule LogStepTest do
 
     test "handle body when a map" do
       module = This.Test.Module
-      options = [implementing_module: module, retry: :never]
+      options = [implementing_module: module, retry: false]
       error_json = Jason.encode!(%{error: "there's an error"})
 
       stub_adapter = fn request ->
@@ -196,7 +196,7 @@ defmodule LogStepTest do
         end
       end
 
-      options = [implementing_module: module, retry: :never, log_function: log_func]
+      options = [implementing_module: module, retry: false, log_function: log_func]
 
       req =
         Req.new(adapter: adapter412)
@@ -274,7 +274,7 @@ defmodule LogStepTest do
         end
       end
 
-      options = [implementing_module: module, retry: :never, log_function: &MyLoggger.emit/1]
+      options = [implementing_module: module, retry: false, log_function: &MyLoggger.emit/1]
 
       req =
         Req.new(adapter: adapter412)

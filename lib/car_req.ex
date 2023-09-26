@@ -35,7 +35,7 @@ defmodule CarReq do
     ],
     retry: [
       default: false,
-      type: {:in, [:safe, false, {:fun, 1}]}
+      type: {:in, [:safe_transient, false, {:fun, 1}]}
     ],
     retry_delay: [
       type: {:or, [:timeout, {:fun, 1}]}
