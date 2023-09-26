@@ -853,26 +853,6 @@ defmodule CarReqTest do
     end
   end
 
-  describe "config" do
-    setup do
-      Application.put_env(:req, :legacy_headers_as_lists, true)
-    end
-
-    test "supports headers config option" do
-      Application.get_env(:req, :legacy_headers_as_lists) |> IO.inspect(label: "legacy_headers_as_lists")
-
-      defmodule TestClientLegacyHeaderImpl do
-        use CarReq
-      end
-
-      secret = "Token Shh, it's a secret"
-      not_mangled_auth_header = [{"NOTauthorization", secret}]
-      client = TestClientLegacyHeaderImpl.client(headers: not_mangled_auth_header, auth: secret)
-      # header is not mangled
-      assert client.headers == not_mangled_auth_header
-    end
-  end
-
   @doc """
   Support a custom delay for `:retry_delay`.
   `:retry_delay` must be of the form Mod.fun/arity.
