@@ -83,18 +83,18 @@ jobs:
     - name: Run tests
       run: mix test
 
-    # - name: Set up Elixir v1.15 OTP26
-    #   uses: erlef/setup-beam@v1
-    #   with:
-    #     elixir-version: '1.15.X' # Define the elixir version [required]
-    #     otp-version: '26.X' # Define the OTP version [required]
-    # - name: Restore dependencies cache
-    #   uses: actions/cache@v3
-    #   with:
-    #     path: deps
-    #     key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-    #     restore-keys: ${{ runner.os }}-mix-
-    # - name: Install dependencies
-    #   run: mix deps.get
-    # - name: Run tests
-    #   run: mix test
+    - name: Set up Elixir v1.15 OTP26
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.15.X' # Define the elixir version [required]
+        otp-version: '26.X' # Define the OTP version [required]
+    - name: Restore dependencies cache
+      uses: actions/cache@v3
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+    - name: Install dependencies
+      run: mix deps.get
+    - name: Run tests
+      run: mix test
