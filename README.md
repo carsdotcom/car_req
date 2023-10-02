@@ -34,7 +34,7 @@ Use the `use` block.
       base_url: "https://www.cars.com/",
       pool_timeout: 100,
       receive_timeout: 999,
-      retry: :safe,
+      retry: :safe_transient,
       max_retries: 3,
       fuse_opts: {{:standard, 5, 10_000}, {:reset, 30_000}}
   end
@@ -66,7 +66,7 @@ The `client_options/0` callback is provided to manage explicitly runtime concern
     use CarReq,
       pool_timeout: 100,
       receive_timeout: 999,
-      retry: :safe,
+      retry: :safe_transient,
       max_retries: 3,
       fuse_opts: {{:standard, 5, 10_000}, {:reset, 30_000}}
 
@@ -90,8 +90,7 @@ The option `datadog_service_name` can be used to set an explicit service name. T
 
 ```elixir
 defmodule ExampleImpl do
-  use CarReq,
-    datadog_service_name: :dont_put_me_in_a_box
+  use CarReq, datadog_service_name: :dont_put_me_in_a_box
 end
 ```
 ## Options
@@ -110,7 +109,7 @@ end
   - `:log_function` - a 1-arity function to emit a Logger message or `:none` to skip the logging step.
 
   # retry logic
-  - `:retry` - one of: `:safe`, `false`, or a 1-arity function.
+  - `:retry` - one of: `:safe_transient`, `false`, or a 1-arity function.
   - `:retry_delay` - a 1-arity function to determine the delay. (Receives retry count as the argument)
     Ex `fn count -> count * 100 end`
   - `:max_retries` - a non-negative integer. Ignored when `retry: false`
