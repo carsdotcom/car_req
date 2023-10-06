@@ -33,9 +33,21 @@ defmodule CarReq do
       default: false,
       type: :boolean
     ],
+    cache: [
+      type: :boolean
+    ],
+    cache_dir: [
+      type: :string
+    ],
+    compressed: [
+      type: :boolean
+    ],
+    compress_body: [
+      type: :boolean
+    ],
     retry: [
       default: false,
-      type: {:in, [:safe_transient, false, {:fun, 1}]}
+      type: {:in, [:safe_transient, :transient, false, {:fun, 1}]}
     ],
     retry_delay: [
       type: {:or, [:timeout, {:fun, 1}]}
