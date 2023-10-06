@@ -71,7 +71,8 @@ defmodule CarReqTest do
             base_url: "https://www.cars.com/",
             pool_timeout: 99,
             receive_timeout: 0,
-            fuse_opts: {{:standard, 0, 10_000}, {:reset, 30_000}}
+            fuse_opts: {{:standard, 0, 10_000}, {:reset, 30_000}},
+            compressed: false
           ]
         end
       end
@@ -84,6 +85,7 @@ defmodule CarReqTest do
       assert client.options.retry == false
       assert client.options.fuse_name == TestClient0Impl
       assert client.options.implementing_module == TestClient0Impl
+      assert client.options.compressed == false
 
       assert {:error, _error} = TestClient0Impl.request(method: :get)
 
