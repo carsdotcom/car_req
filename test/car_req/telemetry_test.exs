@@ -65,7 +65,6 @@ defmodule CarReq.TelemetryTest do
     end
 
     {:error, %RuntimeError{message: "circuit breaker is open"}} = TestTelemetryMod.request(method: :get, url: "http://www.example.com", adapter: &Adapter.failed/1)
-    # assert resp.status == 500
 
     assert_received {[:req, :step, :start], ^ref, _timestamps,
                      %{step_name: :fuse, step_phase: :request}}
