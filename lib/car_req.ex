@@ -176,6 +176,8 @@ defmodule CarReq do
   The :fuse (circuit breaker) is configured by default and opted-out by setting `fuse_opts: :disabled`
 
   The :log_funtion (Logger) is configured by default and opted-out by setting `log_function: :none`
+
+  Wrap the request and response steps in telemetry spans.
   """
   def client(options) do
     Req.new()
@@ -186,6 +188,8 @@ defmodule CarReq do
     |> LogStep.attach()
     |> CarReq.attach_circuit_breaker(options)
     |> Req.update(options)
+    |> then(fn req -> update_in(req.request_steps, &CarReq.Telemetry.request_spanner/1) end)
+    |> then(fn req -> update_in(req.response_steps, &CarReq.Telemetry.response_spanner/1) end)
   end
 
   @callback client_options() :: keyword()
