@@ -14,13 +14,13 @@ defmodule CarReq.Telemetry do
   defp span_steps(steps, phase) do
     Enum.map(steps, fn {name, step_fn} ->
       meta = %{step_name: name, step_phase: phase}
+
       {name,
-        fn request -> :telemetry.span([:req, :step], meta,
-          fn ->
-            {step_fn.(request), meta}
-          end)
-        end
-      }
+       fn request ->
+         :telemetry.span([:req, :step], meta, fn ->
+           {step_fn.(request), meta}
+         end)
+       end}
     end)
   end
 end

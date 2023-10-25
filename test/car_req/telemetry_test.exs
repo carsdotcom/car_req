@@ -14,7 +14,13 @@ defmodule CarReq.TelemetryTest do
         [:req, :step, :stop]
       ])
 
-    {:ok, resp} = TestTelemetryMod.request(method: :get, url: "http://www.example.com/200", adapter: &Adapter.success/1)
+    {:ok, resp} =
+      TestTelemetryMod.request(
+        method: :get,
+        url: "http://www.example.com/200",
+        adapter: &Adapter.success/1
+      )
+
     assert resp.status == 200
 
     assert_received {[:req, :step, :start], ^ref, _timestamps,
@@ -29,7 +35,8 @@ defmodule CarReq.TelemetryTest do
     assert_received {[:req, :step, :start], ^ref, _timestamps,
                      %{step_name: :auth, step_phase: :request}}
 
-    assert_received {[:req, :step, :stop], ^ref, %{duration: duration}, %{step_name: :fuse, step_phase: :request}}
+    assert_received {[:req, :step, :stop], ^ref, %{duration: duration},
+                     %{step_name: :fuse, step_phase: :request}}
 
     assert duration > 0
 
@@ -39,12 +46,17 @@ defmodule CarReq.TelemetryTest do
     assert_received {[:req, :step, :start], ^ref, _timestamps,
                      %{step_name: :decompress_body, step_phase: :response}}
 
-    assert_received {[:req, :step, :stop], ^ref, %{duration: duration}, %{step_name: :decompress_body, step_phase: :response}}
+    assert_received {[:req, :step, :stop], ^ref, %{duration: duration},
+                     %{step_name: :decompress_body, step_phase: :response}}
+
     assert duration > 0
+
     assert_received {[:req, :step, :start], ^ref, _timestamps,
                      %{step_name: :decode_body, step_phase: :response}}
 
-    assert_received {[:req, :step, :stop], ^ref, %{duration: duration}, %{step_name: :decode_body}}
+    assert_received {[:req, :step, :stop], ^ref, %{duration: duration},
+                     %{step_name: :decode_body}}
+
     assert duration > 0
   end
 
@@ -57,18 +69,33 @@ defmodule CarReq.TelemetryTest do
       ])
 
     for _i <- 0..10 do
-      {:ok, _resp} = TestTelemetryMod.request(method: :get, url: "http://www.example.com", adapter: &Adapter.failed/1)
+      {:ok, _resp} =
+        TestTelemetryMod.request(
+          method: :get,
+          url: "http://www.example.com",
+          adapter: &Adapter.failed/1
+        )
 
       assert_received {[:req, :step, :start], ^ref, _timestamps,
                        %{step_name: :fuse, step_phase: :request}}
-      assert_received {[:req, :step, :stop], ^ref, %{duration: _duration}, %{step_name: :fuse, step_phase: :request}}
+
+      assert_received {[:req, :step, :stop], ^ref, %{duration: _duration},
+                       %{step_name: :fuse, step_phase: :request}}
     end
 
-    {:error, %RuntimeError{message: "circuit breaker is open"}} = TestTelemetryMod.request(method: :get, url: "http://www.example.com", adapter: &Adapter.failed/1)
+    {:error, %RuntimeError{message: "circuit breaker is open"}} =
+      TestTelemetryMod.request(
+        method: :get,
+        url: "http://www.example.com",
+        adapter: &Adapter.failed/1
+      )
 
     assert_received {[:req, :step, :start], ^ref, _timestamps,
                      %{step_name: :fuse, step_phase: :request}}
-    assert_received {[:req, :step, :stop], ^ref, %{duration: duration}, %{step_name: :fuse, step_phase: :request}}
+
+    assert_received {[:req, :step, :stop], ^ref, %{duration: duration},
+                     %{step_name: :fuse, step_phase: :request}}
+
     assert duration > 0
 
     # reset the circuit
