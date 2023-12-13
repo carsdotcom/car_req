@@ -1,7 +1,7 @@
 defmodule CarReq.TelemetryTest do
   use ExUnit.Case, async: false
 
-  alias CarReq.Adapter
+  alias CarReq.Fixtures.Adapter
 
   defmodule TestTelemetryMod do
     use CarReq, compressed: true

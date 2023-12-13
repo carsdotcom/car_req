@@ -4,7 +4,7 @@ defmodule CarReqTest do
   import ExUnit.CaptureLog
 
   alias CarReq
-  alias CarReq.Adapter
+  alias CarReq.Fixtures.Adapter
 
   doctest CarReq
 
@@ -239,6 +239,27 @@ defmodule CarReqTest do
           use CarReq, retry: true
         end
       end
+    end
+
+    test "can override adapter from config" do
+      defmodule MockAdapter do
+        @behaviour CarReq.Adapter
+
+        def run(request) do
+          {request, Req.Response.json(%{"json_body" => "Hello from MockAdapter"})}
+        end
+      end
+
+      defmodule ModuleAdapterClient do
+        use CarReq
+      end
+
+      Application.put_env(:car_req, ModuleAdapterClient, adapter_module: MockAdapter)
+
+      assert {:ok, %{status: 200} = response} =
+               ModuleAdapterClient.request(method: :get, url: "https://www.example.com/")
+
+      assert response.body["json_body"] == "Hello from MockAdapter"
     end
 
     test "override the adapter via request option" do
