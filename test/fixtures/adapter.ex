@@ -20,4 +20,8 @@ defmodule CarReq.Adapter do
     response = Req.Response.new(status: 500)
     {request, response}
   end
+
+  def closed(request) do
+    {request, %Mint.TransportError{reason: :closed}}
+  end
 end
