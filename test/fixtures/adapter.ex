@@ -1,4 +1,4 @@
-defmodule CarReq.Adapter do
+defmodule CarReq.Fixtures.Adapter do
   @moduledoc "Mock adapter used for testing with `Utils.HTTPCarReq`"
 
   def success(request) do

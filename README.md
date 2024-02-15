@@ -150,11 +150,75 @@ Override any Req option by passing the option into the underlying Req.request fu
 
 ## Usage in Testing
 
-There are two options for using CarReq in testing. If you don't care about the HTTP responses,
-then there is a stubbed adapter that can be passed in the `:adapter` key.
-See `CarReq.Adapter.success/1`.
+Testing HTTP clients can be very tricky, partly because they are software designed to interact with the outside world.
 
-You can also pass the adapter into the request/1 function call. (See the moduledoc Example above.)
+`Req` and thus `CarReq` have the ability to define a lower level adapter to be used for the actual HTTP request processing. To make testing easier, `CarReq` supports setting the adapter by passing a module implementing the `CarReq.Adapter` behaviour via Application config:
+
+```elixir
+config :car_req, MyApi, adapter_module: Another.Adapter
+```
+
+If no adapter is configured, we use `Req.Steps.run_finch(request)` whichs in turn uses [finch](https://github.com/sneako/finch).
+
+In the following example HTTP client:
+
+```elixir
+defmodule ExternalService.Client do
+  use CarReq, base_url: "https://www.service.com/"
+
+  def get_data(vehicle_id) do
+    [
+      url: "api/vehicle_data/",
+      headers: %{"content-type" => "application/json"},
+      method: :get,
+      params: %{vehicle_id: vehicle_id}
+    ]
+    |> request()
+  end
+end
+```
+
+We can utilize [`Mox`](https://hexdocs.pm/mox/Mox.html) to define a custom adapter module for use only in tests.
+
+First, we need to generate the mock adapter  in `test_helper.exs`:
+
+```elixir
+Mox.defmock(ExternalService.MockAdapter, for: CarReq.Adapter)
+```
+
+Then configure your `Req`-based client to use this adapter in your config:
+
+```elixir
+# config/test.exs
+config :car_req, ExternalService.Client,
+  adapter_module: ExternalService.MockAdapter
+```
+
+Then in your tests, set expectations on the adapter:
+
+```elixir
+defmodule ExternalService.ClientTest do
+  use ExUnit.Case, async: true
+  import Mox
+
+  alias ExternalService.Client
+
+  # Checks your mock expectations on each test
+  setup :verify_on_exit!
+
+  test "can get data" do
+    expect(ExternalService.MockAdapter, :run, fn %Req.Request{} = request ->
+      {request,
+       Req.Response.json(%{"make" => "kia", "model" => "soul"})}
+    end)
+
+    assert {:ok, %{status: 200, body: body}} = Client.get_data()
+    assert body["make"] == "kia"
+  end
+end
+```
+
+You can also pass the adapter into the `request/1` function call. (See the moduledoc Example above.)
 
 When passing `:adapter` to the request function, it takes the form af a 1-arity function which
 recevies the `%Req.Request{}` struct and returns a tuple of the form `{request, %Req.Response{}}`.

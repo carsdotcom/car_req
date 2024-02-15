@@ -3,7 +3,7 @@ defmodule LogStepTest do
 
   import ExUnit.CaptureLog
 
-  alias CarReq.Adapter
+  alias CarReq.Fixtures.Adapter
   alias CarReq.LogStep
 
   require Logger

@@ -197,6 +197,7 @@ defmodule CarReq do
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
       @options CarReq.validate_options!(opts)
+      @default_adapter CarReq.Adapter.Finch
       @datadog_service_name CarReq.build_service_name(__MODULE__, opts)
       @behaviour CarReq
 
@@ -264,8 +265,16 @@ defmodule CarReq do
       def merge_options(request_options) do
         @options
         |> Keyword.merge(implementing_module: __MODULE__)
+        |> Keyword.merge(adapter: adapter())
         |> Keyword.merge(client_options())
         |> Keyword.merge(request_options)
+      end
+
+      defp adapter() do
+        config = Application.get_env(:car_req, __MODULE__, [])
+        adapter_module = config[:adapter_module] || @default_adapter
+
+        &adapter_module.run/1
       end
 
       defp telemetry_metadata(request_options) do
