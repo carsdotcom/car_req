@@ -313,13 +313,12 @@ defmodule CarReqTest do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 300}},
           fuse_name: name,
-          retry: :safe_transient,
           max_retries: 2,
           retry_delay: 50
       end
 
       exception = fn request ->
-        {request, %RuntimeError{message: "something we real wrong"}}
+        {request, %RuntimeError{message: "something went real wrong"}}
       end
 
       TestFuseExceptionImpl.request(
@@ -335,6 +334,8 @@ defmodule CarReqTest do
       )
 
       assert :fuse.ask(name, :sync) == :blown
+      # reset the circuit
+      :fuse.reset(name)
     end
 
     test "fuse + open circuit with retries", %{name: name} do
