@@ -338,45 +338,45 @@ defmodule CarReqTest do
       :fuse.reset(name)
     end
 
-    test "fuse + open circuit with retries", %{name: name} do
+    test "request (Mint :closed) exception + fuse + open circuit with retries", %{name: name} do
       defmodule TestRetryFuseImpl do
         use CarReq,
           fuse_opts: {{:standard, 1, 1000}, {:reset, 300}},
           fuse_name: name,
+          retry_delay: 50,
           retry: :safe_transient,
-          max_retries: 2,
-          retry_delay: &CarReqTest.delay/1
+          max_retries: 2
       end
 
-      # retries with bad request and circuit is closed.
+      # retries with exception raising request
       logs =
         capture_log(fn ->
           TestRetryFuseImpl.request(
             method: :get,
-            url: "http://httpstat.us/500",
-            adapter: &Adapter.failed/1
+            url: "http://example.com",
+            adapter: &Adapter.closed/1
           )
         end)
 
-      assert logs =~ "retry: got response with status 500, will retry in"
+      assert logs =~ "retry: got exception, will retry in"
       assert logs =~ "2 attempts left"
       assert logs =~ "1 attempt left"
-      :fuse.melt(name)
+      # :fuse.melt(name)
 
-      # retries with bad request and circuit is open.
+      # retries with exception raising request and the circuit is closed
       logs =
         capture_log(fn ->
-          TestRetryFuseImpl.request(method: :get, url: "http://httpstat.us/500")
+          TestRetryFuseImpl.request(method: :get, url: "http://example.com")
         end)
 
       # no retries
-      refute logs =~ "retry: got response with status 500, will retry in"
+      refute logs =~ "will retry in"
       refute logs =~ "2 attempts left"
       refute logs =~ "1 attempt left"
       assert :fuse.ask(name, :sync) == :blown
 
       assert {:error, %RuntimeError{message: "circuit breaker is open"}} =
-               TestRetryFuseImpl.request(method: :get, url: "http://httpstat.us/500")
+               TestRetryFuseImpl.request(method: :get, url: "http://example.com")
     end
 
     test "default fuse name to module" do
