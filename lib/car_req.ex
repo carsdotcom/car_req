@@ -187,7 +187,7 @@ defmodule CarReq do
     ])
     |> LogStep.attach()
     |> CarReq.attach_circuit_breaker(options)
-    |> Req.update(options)
+    |> Req.merge(options)
     |> then(fn req -> update_in(req.request_steps, &CarReq.Telemetry.request_spanner/1) end)
     |> then(fn req -> update_in(req.response_steps, &CarReq.Telemetry.response_spanner/1) end)
   end
