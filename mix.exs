@@ -35,7 +35,7 @@ defmodule CarReq.MixProject do
       # HTTP Client deps
       {:nimble_options, "~> 0.4 or ~> 1.0"},
       {:req, "~> 0.4"},
-      {:req_fuse, "~> 0.2"},
+      {:req_fuse, "~> 0.3"},
       # telemetry is a transient dependency through req (finch)
       # but CarReq emits telemetry, so we'll be explicit about it as a dependency.
       {:telemetry, ">= 0.0.0"}
