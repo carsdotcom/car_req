@@ -183,7 +183,7 @@ defmodule CarReqTest do
           fuse_name: name
       end
 
-      assert {:error, %Mint.TransportError{reason: :timeout}} =
+      assert {:error, %Req.TransportError{reason: :timeout}} =
                TestFinchTimeout.request(
                  method: :get,
                  url: "http://www.w.co/electric-flying-cars",
@@ -630,7 +630,7 @@ defmodule CarReqTest do
           receive_timeout: 2
         )
 
-      assert resp == {:error, %Mint.TransportError{reason: :timeout}}
+      assert resp == {:error, %Req.TransportError{reason: :timeout}}
     end
 
     test "set finch in request options" do
@@ -651,7 +651,7 @@ defmodule CarReqTest do
           url: "http://httpstat.us/200"
         )
 
-      assert resp == {:error, %Mint.TransportError{reason: :timeout}}
+      assert resp == {:error, %Req.TransportError{reason: :timeout}}
     end
   end
 
@@ -680,7 +680,7 @@ defmodule CarReqTest do
          )}
       end
 
-      assert {:error, :json_decode_error} =
+      assert {:error, %Jason.DecodeError{}} =
                TestImpl.request(method: :get, url: "https://www.example.com/", adapter: fake_out)
     end
   end
@@ -724,7 +724,7 @@ defmodule CarReqTest do
       )
 
       assert_receive {:event, [:http_car_req, :request, :stop], _,
-                      %{reason: %Mint.TransportError{reason: :timeout}}}
+                      %{reason: %Req.TransportError{reason: :timeout}}}
     end
 
     test "allows service name to be set on client" do

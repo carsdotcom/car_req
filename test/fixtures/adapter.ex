@@ -22,6 +22,6 @@ defmodule CarReq.Adapter do
   end
 
   def closed(request) do
-    {request, %Mint.TransportError{reason: :closed}}
+    {request, %Req.TransportError{reason: :closed}}
   end
 end
