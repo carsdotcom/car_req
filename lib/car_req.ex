@@ -72,6 +72,9 @@ defmodule CarReq do
     ],
     fuse_melt_func: [
       type: {:fun, 1}
+    ],
+    resource_name_override: [
+      type: {:fun, 1}
     ]
   ]
 
@@ -268,6 +271,8 @@ defmodule CarReq do
         |> Keyword.merge(request_options)
       end
 
+      resource_name_override = Keyword.get(opts, :resource_name_override)
+
       defp telemetry_metadata(request_options) do
         %{
           datadog_service_name:
@@ -276,6 +281,13 @@ defmodule CarReq do
           method: Keyword.get(request_options, :method),
           query_params: Keyword.get(request_options, :params)
         }
+        |> then(fn metadata ->
+          if unquote(resource_name_override) do
+            Map.put(metadata, :resource_name_override, unquote(resource_name_override))
+          else
+            metadata
+          end
+        end)
       end
 
       @doc "Set runtime options. Implement this callback for settings that will be dynamic per env."
