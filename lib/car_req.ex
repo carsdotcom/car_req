@@ -186,7 +186,8 @@ defmodule CarReq do
     Req.new()
     |> Req.Request.register_options([
       :datadog_service_name,
-      :implementing_module
+      :implementing_module,
+      :resource_name_override
     ])
     |> LogStep.attach()
     |> CarReq.attach_circuit_breaker(options)
@@ -279,15 +280,10 @@ defmodule CarReq do
             Keyword.get(request_options, :datadog_service_name, @datadog_service_name),
           url: Keyword.get(request_options, :url),
           method: Keyword.get(request_options, :method),
+          resource_name_override:
+            Keyword.get(request_options, :resource_name_override, unquote(resource_name_override)),
           query_params: Keyword.get(request_options, :params)
         }
-        |> then(fn metadata ->
-          if unquote(resource_name_override) do
-            Map.put(metadata, :resource_name_override, unquote(resource_name_override))
-          else
-            metadata
-          end
-        end)
       end
 
       @doc "Set runtime options. Implement this callback for settings that will be dynamic per env."
