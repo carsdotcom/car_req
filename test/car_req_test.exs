@@ -756,6 +756,24 @@ defmodule CarReqTest do
                       %{datadog_service_name: :guu_car_caz}}
     end
 
+    test "allows client to set a resource_name_override rule" do
+      defmodule ResourceNameOverrideClient do
+        use CarReq,
+          resource_name_override: &ResourceNameOverrideClient.resource_name_override/1
+
+        def resource_name_ovveride(resource) do
+          String.replace(resource, ~r|\d+|, "{guid}")
+        end
+      end
+
+      ResourceNameOverrideClient.request(method: :get, url: "/200", adapter: &Adapter.success/1)
+
+      assert_receive {:event, [:http_car_req, :request, :start], _,
+                      %{resource_name_override: override}}
+
+      assert is_function(override, 1)
+    end
+
     test "determines service name for external namespaced clients" do
       defmodule Test.Foo.Bar.External.Service.ServiceNameClient do
         use CarReq
