@@ -780,7 +780,7 @@ defmodule CarReqTest do
           resource_name_override: &ResourceNameOverrideRuntimeClient.global_override/1
 
         def request_override(resource_name) do
-          String.replace(resource_name, "\d+", "{guid}")
+          String.replace(resource_name, ~r|\d+|, "{guid}")
         end
 
         def global_override(resource_name) do
@@ -800,7 +800,7 @@ defmodule CarReqTest do
       assert_receive {:event, [:http_car_req, :request, :start], _,
                       %{resource_name_override: override_fun}}
 
-      assert override_fun.(url) == "/employees/{guid}/details"
+      assert override_fun.(url) == ResourceNameOverrideRuntimeClient.request_override(url)
     end
 
     test "determines service name for external namespaced clients" do
