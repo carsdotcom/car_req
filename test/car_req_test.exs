@@ -774,6 +774,35 @@ defmodule CarReqTest do
       assert is_function(override, 1)
     end
 
+    test "allows resource name override option to be set per-request on the client" do
+      defmodule ResourceNameOverrideRuntimeClient do
+        use CarReq,
+          resource_name_override: &ResourceNameOverrideRuntimeClient.global_override/1
+
+        def request_override(resource_name) do
+          String.replace(resource_name, "\d+", "{guid}")
+        end
+
+        def global_override(resource_name) do
+          String.replace(resource_name, "/", "<slash>")
+        end
+      end
+
+      url = "/employees/1234/details"
+
+      ResourceNameOverrideRuntimeClient.request(
+        method: :get,
+        url: url,
+        adapter: &Adapter.success/1,
+        resource_name_override: &ResourceNameOverrideRuntimeClient.request_override/1
+      )
+
+      assert_receive {:event, [:http_car_req, :request, :start], _,
+                      %{resource_name_override: override_fun}}
+
+      assert override_fun.(url) == "/employees/{guid}/details"
+    end
+
     test "determines service name for external namespaced clients" do
       defmodule Test.Foo.Bar.External.Service.ServiceNameClient do
         use CarReq
