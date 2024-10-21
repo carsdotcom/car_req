@@ -135,6 +135,15 @@ MyResourceOverrideClient.request(
   end
 ```
 
+And finally, on a per-request basis, you can provide a hard-coded string as well rather than a 1-arity function:
+
+```elixir
+MyResourceOverrideClient.request(
+  method: :get,
+  url: url,
+  resource_name_override: "get product_details_endpoint"
+```
+
 ## Options
 
   # adapter
