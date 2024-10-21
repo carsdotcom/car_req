@@ -93,6 +93,48 @@ defmodule ExampleImpl do
   use CarReq, datadog_service_name: :dont_put_me_in_a_box
 end
 ```
+
+### Resource Name Overrides
+
+In most cases, your application's instrumentation modules (the ones that call `:telemetry.attach/4` on Telemetry events executed by CarReq) will take the metadata provided by CarReq's Telemetry events and form a resource name that may look something like:
+
+```
+get some_partner.api.com/product/4123/details
+```
+
+In some cases, you may want specific requests or clients to override the default resource name provided by your application's instrumentation module. To do so, you can pass along a `:resource_name_override` option at the client level or on a per-request
+basis. The value of `:resource_name_override` must be a 1-arity function that takes a string (the default resource_name provided by your
+instrumentation) and returns a new string (the overridden resource_name). Note that when passing this option at the client-level, you
+must pass the option as an external function capture, i.e., `&Module.function/1`. An example would be:
+
+```elixir
+defmodule MyResourceOverrideClient do
+  use CarReq, resource_name_override: &MyResourceOverrideClient.override_function/1
+
+  @doc """
+  Replaces any consecutive instances of numbers in a string with the
+  placeholder `{guid}`. For example
+
+  MyResourceOverrideClient.override_function("get partner.api.com/product/1234/details")
+  # => "get partner.api.com/product/{guid}/details"
+  """
+  def override_function(resource_name) do
+    String.replace(resource_name, ~r|\d+|, "{guid}")
+  end
+end
+```
+
+You can also provide an override function on a per-request basis as follows:
+
+```elixir
+MyResourceOverrideClient.request(
+  method: :get,
+  url: url,
+  resource_name_override: fn resource_name -> 
+   String.replace(resource_name, ~r|\d+|, "{guid}")
+  end
+```
+
 ## Options
 
   # adapter
