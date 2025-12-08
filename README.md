@@ -130,9 +130,10 @@ You can also provide an override function on a per-request basis as follows:
 MyResourceOverrideClient.request(
   method: :get,
   url: url,
-  resource_name_override: fn resource_name -> 
-   String.replace(resource_name, ~r|\d+|, "{guid}")
+  resource_name_override: fn resource_name ->
+    String.replace(resource_name, ~r|\d+|, "{guid}")
   end
+)
 ```
 
 And finally, on a per-request basis, you can provide a hard-coded string as well rather than a 1-arity function:
@@ -142,28 +143,44 @@ MyResourceOverrideClient.request(
   method: :get,
   url: url,
   resource_name_override: "get product_details_endpoint"
+)
 ```
 
 ## Options
 
-  # adapter
-  - `:pool_timeout` - How long to wait to checkout a connection from the pool.
-  - `:receive_timeout` - (for Finch) The maximum time to wait for a response before returning an error.
-  - `:raw` - Bypass the decompress step on the response body step when `true`.
-  - `:decode_body` --  Bypass the decode step on the response body step when `false`.
+  ### General
+  - `:base_url` - Base URL for all requests (e.g., `"https://www.cars.com/"`).
+  - `:finch` - The Finch pool to use. Defaults to Req's default pool.
 
-  # fuse
-  - keywords for fuse configuration. See `ReqFuse`
+  ### Adapter / Timeout
+  - `:pool_timeout` - How long to wait to checkout a connection from the pool. Default: `500`.
+  - `:receive_timeout` - The maximum time to wait for a response before returning an error. Default: `1000`.
 
-  # Instrumentation (datadog)
-  - `:datadog_service_name` - An atom used to name Telemetry traces. This will be the resource name used in DataDog.
-  - `:log_function` - a 1-arity function to emit a Logger message or `:none` to skip the logging step.
+  ### Response Handling
+  - `:raw` - Bypass the decompress step on the response body when `true`. Default: `false`.
+  - `:decode_body` - Bypass the decode step on the response body when `false`. Default: `true`.
+  - `:cache` - Enable response caching when `true`.
+  - `:cache_dir` - Directory path for cached responses.
+  - `:compressed` - Request compressed response from server when `true`.
+  - `:compress_body` - Compress the request body when `true`.
 
-  # retry logic
-  - `:retry` - one of: `:safe_transient`, `false`, or a 1-arity function.
-  - `:retry_delay` - a 1-arity function to determine the delay. (Receives retry count as the argument)
-    Ex `fn count -> count * 100 end`
-  - `:max_retries` - a non-negative integer. Ignored when `retry: false`
+  ### Circuit Breaker (Fuse)
+  - `:fuse_name` - Atom name for the fuse. Defaults to the implementing module.
+  - `:fuse_opts` - Fuse trigger and reset options. Use `:disabled` to opt-out. See [ReqFuse](https://github.com/carsdotcom/req_fuse).
+  - `:fuse_verbose` - Suppress log output when `false`.
+  - `:fuse_mode` - One of `:sync` or `:async_dirty`.
+  - `:fuse_melt_func` - A 1-arity function for custom melt messages.
+
+  ### Instrumentation (Datadog)
+  - `:datadog_service_name` - An atom used to name Telemetry traces. This will be the service name used in DataDog.
+  - `:log_function` - A 1-arity function to emit a Logger message, or `:none` to skip the logging step.
+  - `:resource_name_override` - A 1-arity function to override the default resource name, or a hard-coded string.
+
+  ### Retry Logic
+  - `:retry` - One of: `:safe_transient`, `:transient`, `false`, or a 1-arity function. Default: `false`.
+  - `:retry_delay` - A 1-arity function to determine the delay (receives retry count as argument).
+    Ex: `fn count -> count * 100 end`
+  - `:max_retries` - A non-negative integer. Ignored when `retry: false`.
 
 See [Req `retry/1`](https://hexdocs.pm/req/Req.Steps.html#retry/1) for more information on
   retry options.
@@ -181,7 +198,7 @@ Override any Req option by passing the option into the underlying Req.request fu
 ### Example
 ```elixir
   defmodule ExampleImpl do
-    use CarReq
+    use CarReq,
       base_url: "https://www.cars.com/"
   end
   fake_adapter = fn request ->
@@ -207,8 +224,8 @@ See `CarReq.Adapter.success/1`.
 
 You can also pass the adapter into the request/1 function call. (See the moduledoc Example above.)
 
-When passing `:adapter` to the request function, it takes the form af a 1-arity function which
-recevies the `%Req.Request{}` struct and returns a tuple of the form `{request, %Req.Response{}}`.
+When passing `:adapter` to the request function, it takes the form of a 1-arity function which
+receives the `%Req.Request{}` struct and returns a tuple of the form `{request, %Req.Response{}}`.
 
 You may pass `Mod.fun/1` or an anonymous function as the value to the `:adapter` key.
 See the moduledoc example above for the anonymous function flavor.
@@ -216,7 +233,7 @@ See the moduledoc example above for the anonymous function flavor.
 
 ## Installation
 
-Used internally, so only available thorugh github at this time.
+Used internally, so only available through GitHub at this time.
 
 ~If [available in Hex](https://hex.pm/docs/publish),~
 The package can be installed by adding `car_req` to your list of dependencies in `mix.exs`:
@@ -224,7 +241,7 @@ The package can be installed by adding `car_req` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:car_req, git: "git@github.com:carsdotcom/car_req.git", tag: "0.1.2"}
+    {:car_req, git: "git@github.com:carsdotcom/car_req.git", tag: "0.3.3"}
   ]
 end
 ```
@@ -232,4 +249,3 @@ end
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/car_req>.
-
