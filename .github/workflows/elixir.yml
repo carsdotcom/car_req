@@ -79,3 +79,13 @@ jobs:
         run: mix deps.get
       - name: Run tests
         run: mix test
+
+      - name: Set up Elixir v1.20 OTP29
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20.X"
+          otp-version: "29.X"
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Run tests
+        run: mix test
