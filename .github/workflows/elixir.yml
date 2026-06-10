@@ -19,38 +19,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Elixir v1.14 OTP25
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: '1.14.X' # Define the elixir version [required]
-          otp-version: '25.X' # Define the OTP version [required]
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
-      - name: Install dependencies
-        run: mix deps.get
-      - name: Run tests
-        run: mix test
-
       - name: Set up Elixir v1.15 OTP25
         uses: erlef/setup-beam@v1
         with:
           elixir-version: '1.15.X' # Define the elixir version [required]
           otp-version: '25.X' # Define the OTP version [required]
 
-      - name: Install dependencies
-        run: mix deps.get
-      - name: Run tests
-        run: mix test
-
-      - name: Set up Elixir v1.14 OTP26
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: "1.14.X" # Define the elixir version [required]
-          otp-version: "26.X" # Define the OTP version [required]
       - name: Install dependencies
         run: mix deps.get
       - name: Run tests
@@ -71,6 +45,36 @@ jobs:
         with:
           elixir-version: "1.16.X" # Define the elixir version [required]
           otp-version: "26.X" # Define the OTP version [required]
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Run tests
+        run: mix test
+
+      - name: Set up Elixir v1.17 OTP27
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.17.X"
+          otp-version: "27.X"
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Run tests
+        run: mix test
+
+      - name: Set up Elixir v1.18 OTP27
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.18.X"
+          otp-version: "27.X"
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Run tests
+        run: mix test
+
+      - name: Set up Elixir v1.19 OTP28
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.X" # Define the elixir version [required]
+          otp-version: "28.X" # Define the OTP version [required]
       - name: Install dependencies
         run: mix deps.get
       - name: Run tests
