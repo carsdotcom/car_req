@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/carsdotcom/car_req/compare/0.3.3...0.3.4) - 2026-06-11
+
+### Changed
+
+- Upgraded `req` from 0.5.10 to 0.6.1
+- Upgraded `finch` from 0.19.0 to 0.22.0 (required by req 0.6.1)
+- Upgraded `mint` from 1.7.1 to 1.9.0 (required by finch 0.22)
+- Raised minimum Elixir version from `~> 1.13` to `~> 1.15` (required by finch 0.22)
+- Expanded CI matrix to cover Elixir 1.15–1.20 paired with OTP 25–29; dropped Elixir 1.14
+
 ### Documentation
 
 - Created CHANGELOG.md (previously referenced in mix.exs but missing)
