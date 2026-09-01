@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/carsdotcom/car_req/compare/0.3.4...0.4.0) - 2026-09-01
+
+### Added
+
+- `:request_timeout` option — Finch's total-response deadline (HTTP/1, best-effort) for bounding
+  the whole request when an upstream stalls past the per-chunk `:receive_timeout`. Unset by default
+  (no behavior change). Because Req's Finch adapter does not forward `:request_timeout`, it is
+  applied via Req's `:finch_request` hook, with errors normalized to Req exceptions (e.g.
+  `%Req.TransportError{reason: :timeout}`) exactly as the default adapter path. Motivated by
+  CARS-35993 (Market Demand API ~5s stalls not bounded by the 500ms `:receive_timeout`).
+- Declared `finch` as an explicit dependency, since CarReq now calls `Finch.request/3` directly.
+
+### Documentation
+
+- Clarified that `:receive_timeout` is a per-chunk timeout, not a total-request deadline.
+
 ## [0.3.4](https://github.com/carsdotcom/car_req/compare/0.3.3...0.3.4) - 2026-06-11
 
 ### Changed

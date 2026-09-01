@@ -655,6 +655,66 @@ defmodule CarReqTest do
     end
   end
 
+  describe "request_timeout" do
+    test "is a valid option that installs a finch_request hook and is not passed to Req" do
+      defmodule TestRequestTimeoutOption do
+        use CarReq, request_timeout: 250
+      end
+
+      client = TestRequestTimeoutOption.client()
+
+      assert is_function(client.options[:finch_request], 4)
+      refute Map.has_key?(client.options, :request_timeout)
+      :fuse.remove(TestRequestTimeoutOption)
+    end
+
+    test "bounds a stalled response and returns a transport timeout" do
+      {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, packet: :raw])
+      {:ok, port} = :inet.port(listen)
+
+      # Accept the connection, then dribble body bytes with gaps well under receive_timeout so the
+      # per-chunk timeout never trips — only request_timeout can stop the request.
+      server =
+        spawn(fn ->
+          {:ok, socket} = :gen_tcp.accept(listen)
+          {:ok, _request} = :gen_tcp.recv(socket, 0, 5_000)
+          :gen_tcp.send(socket, "HTTP/1.1 200 OK\r\ncontent-length: 40\r\n\r\n")
+
+          Enum.reduce_while(1..40, :ok, fn _, _ ->
+            case :gen_tcp.send(socket, "x") do
+              :ok -> Process.sleep(50) && {:cont, :ok}
+              _closed -> {:halt, :ok}
+            end
+          end)
+        end)
+
+      on_exit(fn ->
+        Process.exit(server, :kill)
+        :gen_tcp.close(listen)
+      end)
+
+      start_supervised!({Finch, name: CarReq.FinchSupervisor})
+
+      defmodule TestRequestTimeoutStall do
+        use CarReq,
+          finch: CarReq.FinchSupervisor,
+          receive_timeout: 1_000,
+          request_timeout: 200
+      end
+
+      {elapsed_us, result} =
+        :timer.tc(fn ->
+          TestRequestTimeoutStall.request(method: :get, url: "http://127.0.0.1:#{port}/")
+        end)
+
+      assert {:error, %Req.TransportError{reason: :timeout}} = result
+
+      # request_timeout (200ms) tripped well before receive_timeout (1000ms/chunk) or the full body.
+      assert elapsed_us < 900_000
+      :fuse.remove(TestRequestTimeoutStall)
+    end
+  end
+
   describe "request/1" do
     test "works with no opts and the slimmest implementation" do
       assert {:ok, response} = TestImpl.request(method: :get, url: "https://www.example.com/")

@@ -3,7 +3,7 @@ defmodule CarReq.MixProject do
 
   @name "CarReq"
   @source_url "https://github.com/carsdotcom/car_req"
-  @version "0.3.4"
+  @version "0.4.0"
 
   def project do
     [
@@ -36,6 +36,10 @@ defmodule CarReq.MixProject do
       {:nimble_options, "~> 0.4 or ~> 1.0"},
       {:req, "~> 0.6"},
       {:req_fuse, "~> 0.3"},
+      # finch is a transient dependency through req, but CarReq calls Finch.request/3 directly
+      # (to inject :request_timeout), so we'll be explicit about it as a dependency. Version is
+      # left to req's own finch requirement to avoid over-constraining downstream consumers.
+      {:finch, ">= 0.0.0"},
       # telemetry is a transient dependency through req (finch)
       # but CarReq emits telemetry, so we'll be explicit about it as a dependency.
       {:telemetry, ">= 0.0.0"}
