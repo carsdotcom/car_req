@@ -25,6 +25,9 @@ defmodule CarReq do
       default: 1000,
       type: :timeout
     ],
+    request_timeout: [
+      type: :timeout
+    ],
     decode_body: [
       default: true,
       type: :boolean
@@ -183,6 +186,9 @@ defmodule CarReq do
   Wrap the request and response steps in telemetry spans.
   """
   def client(options) do
+    {request_timeout, options} = Keyword.pop(options, :request_timeout)
+    options = put_request_timeout(options, request_timeout)
+
     Req.new()
     |> Req.Request.register_options([
       :datadog_service_name,
@@ -195,6 +201,55 @@ defmodule CarReq do
     |> then(fn req -> update_in(req.request_steps, &CarReq.Telemetry.request_spanner/1) end)
     |> then(fn req -> update_in(req.response_steps, &CarReq.Telemetry.response_spanner/1) end)
   end
+
+  # Req's Finch adapter forwards only `:receive_timeout` and `:pool_timeout`; it has no
+  # `:request_timeout` option, and `:request_timeout` is not a registered Req option (so it must be
+  # popped before `Req.merge/2` or Req raises). `:receive_timeout` bounds the wait for each response
+  # chunk, not the whole request, so an upstream that trickles or stalls can hold a call open far
+  # longer than expected. When `:request_timeout` is set we inject Finch's total-response deadline
+  # through Req's supported `:finch_request` hook, running the Finch request ourselves and
+  # normalizing the result exactly as `Req.Finch` does so callers and telemetry see the same
+  # exceptions (notably `Req.TransportError{reason: :timeout}`).
+  @spec put_request_timeout(keyword(), timeout() | nil) :: keyword()
+  defp put_request_timeout(options, nil), do: options
+
+  defp put_request_timeout(options, request_timeout) do
+    hook = fn request, finch_request, finch_name, finch_options ->
+      finch_options = Keyword.put(finch_options, :request_timeout, request_timeout)
+
+      case Finch.request(finch_request, finch_name, finch_options) do
+        {:ok, response} -> {request, Req.Response.new(response)}
+        {:error, exception} -> {request, normalize_finch_error(exception)}
+      end
+    end
+
+    Keyword.put(options, :finch_request, hook)
+  end
+
+  # Guards on the module (rather than struct patterns) so this compiles without Mint/Finch being
+  # compile-time dependencies of car_req: the error structs only need to exist at runtime, which
+  # they do (finch produces them). Mirrors `Req.Finch`'s own error normalization.
+  @spec normalize_finch_error(Exception.t()) :: Exception.t()
+  defp normalize_finch_error(error) when is_struct(error, Mint.TransportError),
+    do: %Req.TransportError{reason: error.reason}
+
+  defp normalize_finch_error(error) when is_struct(error, Mint.HTTPError),
+    do: %Req.HTTPError{protocol: finch_http_protocol(error.module), reason: error.reason}
+
+  defp normalize_finch_error(error) when is_struct(error, Finch.Error),
+    do: %Req.HTTPError{protocol: :http2, reason: error.reason}
+
+  defp normalize_finch_error(error) when is_struct(error, Finch.TransportError),
+    do: %Req.TransportError{reason: error.reason}
+
+  defp normalize_finch_error(error) when is_struct(error, Finch.HTTPError),
+    do: %Req.HTTPError{protocol: finch_http_protocol(error.module), reason: error.reason}
+
+  defp normalize_finch_error(error), do: error
+
+  @spec finch_http_protocol(module()) :: :http1 | :http2
+  defp finch_http_protocol(Mint.HTTP2), do: :http2
+  defp finch_http_protocol(_module), do: :http1
 
   @callback client_options() :: keyword()
 

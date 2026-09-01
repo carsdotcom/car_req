@@ -154,7 +154,16 @@ MyResourceOverrideClient.request(
 
   ### Adapter / Timeout
   - `:pool_timeout` - How long to wait to checkout a connection from the pool. Default: `500`.
-  - `:receive_timeout` - The maximum time to wait for a response before returning an error. Default: `1000`.
+  - `:receive_timeout` - The maximum time to wait for **each chunk** of the response before
+    returning an error. This is a per-chunk timeout, not a total-request deadline: an upstream that
+    trickles or stalls can hold a request open far longer than this value. Default: `1000`.
+  - `:request_timeout` - Total time to wait for a complete response before returning an error
+    (HTTP/1 only, best-effort). Unset by default (no total deadline, matching Finch's `:infinity`).
+    Set this to bound the whole request when an upstream may stall past `:receive_timeout`; on
+    expiry the request fails with `%Req.TransportError{reason: :timeout}`, the same shape as a
+    `:receive_timeout`. Because Req's Finch adapter does not forward `:request_timeout`, CarReq
+    applies it via Req's `:finch_request` hook (so it is not combinable with a custom
+    `:finch_request`).
 
   ### Response Handling
   - `:raw` - Bypass the decompress step on the response body when `true`. Default: `false`.
