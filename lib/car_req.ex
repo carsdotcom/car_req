@@ -213,20 +213,18 @@ defmodule CarReq do
   #
   # The hook replaces Req's default Finch call, which is also where Req dispatches `:into`
   # (streaming) responses — so `:request_timeout` cannot be combined with `:into`, and we fail
-  # fast rather than silently buffering a streamed response in full.
+  # fast rather than silently buffering a streamed response in full. `:into` is refused both when
+  # it is present as the client is built and when it is applied later via `Req.request/2` or
+  # `Req.merge/2` (the hook inspects the final `request.into`).
   @spec put_request_timeout(keyword(), timeout() | nil) :: keyword()
   defp put_request_timeout(options, nil), do: options
 
   defp put_request_timeout(options, request_timeout) do
-    if Keyword.has_key?(options, :into) do
-      raise ArgumentError,
-            ":request_timeout cannot be combined with :into. Setting :request_timeout installs a " <>
-              ":finch_request hook that bypasses Req's streaming dispatch, so an :into (streaming) " <>
-              "request would be silently buffered in full instead. Drop :request_timeout for " <>
-              "streaming requests, or bound them another way (e.g. :receive_timeout)."
-    end
+    if Keyword.has_key?(options, :into), do: raise_into_conflict!()
 
     hook = fn request, finch_request, finch_name, finch_options ->
+      if request.into, do: raise_into_conflict!()
+
       finch_options = Keyword.put(finch_options, :request_timeout, request_timeout)
 
       case Finch.request(finch_request, finch_name, finch_options) do
@@ -236,6 +234,15 @@ defmodule CarReq do
     end
 
     Keyword.put(options, :finch_request, hook)
+  end
+
+  @spec raise_into_conflict!() :: no_return()
+  defp raise_into_conflict! do
+    raise ArgumentError,
+          ":request_timeout cannot be combined with :into. Setting :request_timeout installs a " <>
+            ":finch_request hook that bypasses Req's streaming dispatch, so an :into (streaming) " <>
+            "request would be silently buffered in full instead. Drop :request_timeout for " <>
+            "streaming requests, or bound them another way (e.g. :receive_timeout)."
   end
 
   # Guards on the module (rather than struct patterns) so this compiles without Mint/Finch being

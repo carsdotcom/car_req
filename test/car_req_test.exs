@@ -736,6 +736,26 @@ defmodule CarReqTest do
 
       :fuse.remove(TestRequestTimeoutInto)
     end
+
+    test "raises when :into is applied at request time, after the client is built" do
+      defmodule TestRequestTimeoutIntoLate do
+        use CarReq, request_timeout: 250
+      end
+
+      # The client is built without :into (so the build-time guard passes), then :into is added at
+      # request time. The hook still runs, so it must inspect the final request and refuse.
+      client = TestRequestTimeoutIntoLate.client()
+
+      assert_raise ArgumentError, ~r/:request_timeout cannot be combined with :into/, fn ->
+        Req.request(client,
+          method: :get,
+          url: "http://127.0.0.1:1/",
+          into: fn {:data, _data}, acc -> {:cont, acc} end
+        )
+      end
+
+      :fuse.remove(TestRequestTimeoutIntoLate)
+    end
   end
 
   describe "request/1" do
