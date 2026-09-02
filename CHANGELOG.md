@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   applied via Req's `:finch_request` hook, with errors normalized to Req exceptions (e.g.
   `%Req.TransportError{reason: :timeout}`) exactly as the default adapter path. Motivated by
   CARS-35993 (Market Demand API ~5s stalls not bounded by the 500ms `:receive_timeout`).
+  Combining `:request_timeout` with `:into` (streaming) raises `ArgumentError`, since the
+  `:finch_request` hook would otherwise silently bypass Req's streaming dispatch.
 - Declared `finch` as an explicit dependency, since CarReq now calls `Finch.request/3` directly.
 
 ### Documentation

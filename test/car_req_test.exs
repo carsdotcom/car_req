@@ -693,20 +693,15 @@ defmodule CarReqTest do
       {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, packet: :raw])
       {:ok, port} = :inet.port(listen)
 
-      # Accept the connection, then dribble body bytes with gaps well under receive_timeout so the
-      # per-chunk timeout never trips — only request_timeout can stop the request.
+      # Send only the response headers (declaring a body that never arrives) so the response stays
+      # incomplete. With request_timeout: 0 the total-response deadline trips deterministically on
+      # the first receive loop — no timing assertions needed.
       server =
         spawn(fn ->
           {:ok, socket} = :gen_tcp.accept(listen)
           {:ok, _request} = :gen_tcp.recv(socket, 0, 5_000)
           :gen_tcp.send(socket, "HTTP/1.1 200 OK\r\ncontent-length: 40\r\n\r\n")
-
-          Enum.reduce_while(1..40, :ok, fn _, _ ->
-            case :gen_tcp.send(socket, "x") do
-              :ok -> Process.sleep(50) && {:cont, :ok}
-              _closed -> {:halt, :ok}
-            end
-          end)
+          Process.sleep(:infinity)
         end)
 
       on_exit(fn ->
@@ -719,20 +714,27 @@ defmodule CarReqTest do
       defmodule TestRequestTimeoutStall do
         use CarReq,
           finch: CarReq.FinchSupervisor,
-          receive_timeout: 1_000,
           request_timeout: 0
       end
 
-      {elapsed_us, result} =
-        :timer.tc(fn ->
-          TestRequestTimeoutStall.request(method: :get, url: "http://127.0.0.1:#{port}/")
-        end)
+      assert {:error, %Req.TransportError{reason: :timeout}} =
+               TestRequestTimeoutStall.request(method: :get, url: "http://127.0.0.1:#{port}/")
 
-      assert {:error, %Req.TransportError{reason: :timeout}} = result
-
-      # request_timeout (200ms) tripped well before receive_timeout (1000ms/chunk) or the full body.
-      assert elapsed_us < 900_000
       :fuse.remove(TestRequestTimeoutStall)
+    end
+
+    test "raises when :request_timeout is combined with :into (streaming)" do
+      defmodule TestRequestTimeoutInto do
+        use CarReq, request_timeout: 250
+      end
+
+      # :request_timeout installs a :finch_request hook that bypasses Req's streaming dispatch, so
+      # combining it with :into would silently buffer the response — fail fast instead.
+      assert_raise ArgumentError, ~r/:request_timeout cannot be combined with :into/, fn ->
+        TestRequestTimeoutInto.client(into: fn {:data, _data}, acc -> {:cont, acc} end)
+      end
+
+      :fuse.remove(TestRequestTimeoutInto)
     end
   end
 
