@@ -345,10 +345,13 @@ defmodule CarReqTest do
         adapter: exception
       )
 
+      # Deterministic second failure via a stub adapter. Previously this hit live httpstat.us with
+      # receive_timeout: 0; in CI that failure could land slowly (or not at all), falling outside
+      # the fuse's 1000ms window so the breaker never blew.
       TestFuseExceptionImpl.request(
         method: :get,
         url: "http://httpstat.us/500",
-        receive_timeout: 0
+        adapter: &Adapter.closed/1
       )
 
       assert :fuse.ask(name, :sync) == :blown
