@@ -36,9 +36,11 @@ defmodule CarReq.MixProject do
       {:nimble_options, "~> 0.4 or ~> 1.0"},
       {:req, "~> 0.6"},
       {:req_fuse, "~> 0.3"},
-      # finch is a transient dependency through req, but CarReq calls Finch.request/3 directly
-      # (to inject :request_timeout), so we'll be explicit about it as a dependency. Version is
-      # left to req's own finch requirement to avoid over-constraining downstream consumers.
+      # finch is a transitive dependency (car_req -> req -> finch), but CarReq now calls
+      # Finch.request/3 directly to inject :request_timeout, so we declare it explicitly rather
+      # than rely on it being pulled in through req. No version constraint here: req already pins
+      # the finch version it needs, so car_req defers to req instead of pinning a second, possibly
+      # divergent range (same approach as :telemetry below).
       {:finch, ">= 0.0.0"},
       # telemetry is a transient dependency through req (finch)
       # but CarReq emits telemetry, so we'll be explicit about it as a dependency.
