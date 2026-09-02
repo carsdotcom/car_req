@@ -210,10 +210,22 @@ defmodule CarReq do
   # through Req's supported `:finch_request` hook, running the Finch request ourselves and
   # normalizing the result exactly as `Req.Finch` does so callers and telemetry see the same
   # exceptions (notably `Req.TransportError{reason: :timeout}`).
+  #
+  # The hook replaces Req's default Finch call, which is also where Req dispatches `:into`
+  # (streaming) responses — so `:request_timeout` cannot be combined with `:into`, and we fail
+  # fast rather than silently buffering a streamed response in full.
   @spec put_request_timeout(keyword(), timeout() | nil) :: keyword()
   defp put_request_timeout(options, nil), do: options
 
   defp put_request_timeout(options, request_timeout) do
+    if Keyword.has_key?(options, :into) do
+      raise ArgumentError,
+            ":request_timeout cannot be combined with :into. Setting :request_timeout installs a " <>
+              ":finch_request hook that bypasses Req's streaming dispatch, so an :into (streaming) " <>
+              "request would be silently buffered in full instead. Drop :request_timeout for " <>
+              "streaming requests, or bound them another way (e.g. :receive_timeout)."
+    end
+
     hook = fn request, finch_request, finch_name, finch_options ->
       finch_options = Keyword.put(finch_options, :request_timeout, request_timeout)
 

@@ -162,8 +162,10 @@ MyResourceOverrideClient.request(
     Set this to bound the whole request when an upstream may stall past `:receive_timeout`; on
     expiry the request fails with `%Req.TransportError{reason: :timeout}`, the same shape as a
     `:receive_timeout`. Because Req's Finch adapter does not forward `:request_timeout`, CarReq
-    applies it via Req's `:finch_request` hook (so it is not combinable with a custom
-    `:finch_request`).
+    applies it via Req's `:finch_request` hook. Two consequences: it overrides any custom
+    `:finch_request` you pass, and it **cannot be combined with `:into`** (streaming) — doing so
+    raises `ArgumentError`, since the hook would otherwise silently bypass Req's streaming dispatch
+    and buffer the whole response in memory.
 
   ### Response Handling
   - `:raw` - Bypass the decompress step on the response body when `true`. Default: `false`.
