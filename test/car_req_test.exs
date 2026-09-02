@@ -177,6 +177,24 @@ defmodule CarReqTest do
     end
 
     test "handles finch receive_timeout", %{name: name} do
+      # Connect to a local server that accepts the connection but never responds, so a 0ms
+      # receive_timeout deterministically trips as :timeout. (Previously this hit an external URL
+      # and raced between :timeout and :closed depending on network conditions.)
+      {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, packet: :raw])
+      {:ok, port} = :inet.port(listen)
+
+      server =
+        spawn(fn ->
+          {:ok, socket} = :gen_tcp.accept(listen)
+          Process.sleep(:infinity)
+          socket
+        end)
+
+      on_exit(fn ->
+        Process.exit(server, :kill)
+        :gen_tcp.close(listen)
+      end)
+
       defmodule TestFinchTimeout do
         use CarReq,
           receive_timeout: 0,
@@ -186,7 +204,7 @@ defmodule CarReqTest do
       assert {:error, %Req.TransportError{reason: :timeout}} =
                TestFinchTimeout.request(
                  method: :get,
-                 url: "http://www.w.co/electric-flying-cars",
+                 url: "http://127.0.0.1:#{port}/",
                  adapter: &Req.Steps.run_finch/1
                )
     end
@@ -699,7 +717,7 @@ defmodule CarReqTest do
         use CarReq,
           finch: CarReq.FinchSupervisor,
           receive_timeout: 1_000,
-          request_timeout: 200
+          request_timeout: 0
       end
 
       {elapsed_us, result} =
