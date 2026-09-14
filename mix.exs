@@ -3,7 +3,7 @@ defmodule CarReq.MixProject do
 
   @name "CarReq"
   @source_url "https://github.com/carsdotcom/car_req"
-  @version "0.4.0"
+  @version "0.4.1"
 
   def project do
     [
