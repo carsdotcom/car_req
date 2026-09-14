@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/carsdotcom/car_req/compare/0.4.0...0.4.1) - 2026-09-14
+
 ### Fixed
 
 - Rescue paths in `:telemetry.span/3` now `Map.merge/2` the start metadata into the
