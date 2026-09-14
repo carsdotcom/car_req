@@ -300,7 +300,9 @@ defmodule CarReq do
       def request(request_options) do
         metadata = telemetry_metadata(request_options)
 
-        # :telemetry.span is used so that the status code of the request, or the exception reason, can be added to the stop event's metadata.
+        # :telemetry.span/3 uses the second tuple element as stop metadata and does not
+        # merge start into :stop. Every return must Map.merge/2 the start metadata so
+        # method / datadog_service_name survive on the stop event.
         :telemetry.span([:http_car_req, :request], metadata, fn ->
           try do
             request_options
@@ -315,14 +317,14 @@ defmodule CarReq do
             end
           rescue
             Jason.DecodeError ->
-              {{:error, :json_decode_error}, %{reason: :json_decode_error}}
+              {{:error, :json_decode_error}, Map.merge(metadata, %{reason: :json_decode_error})}
 
             error ->
               # Finch raises a RuntimeError for pool timeouts.
               if Map.get(error, :message, "") =~ "Finch was unable to provide a connection" do
-                {{:error, :pool_timeout}, %{reason: :pool_timeout}}
+                {{:error, :pool_timeout}, Map.merge(metadata, %{reason: :pool_timeout})}
               else
-                {{:error, inspect(error)}, %{reason: inspect(error)}}
+                {{:error, inspect(error)}, Map.merge(metadata, %{reason: inspect(error)})}
               end
           end
         end)

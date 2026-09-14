@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Rescue paths in `:telemetry.span/3` now `Map.merge/2` the start metadata into the
+  stop payload (JSON decode, Finch pool timeout, and the catch-all). `:telemetry.span/3`
+  uses that second tuple element as stop metadata and does not merge start into `:stop`,
+  so those three returns previously emitted `%{reason: ...}` only. Downstream tracing and
+  OTel metrics lost `method` and `datadog_service_name` on those failures; success and
+  `{:error, exception}` already kept them.
+
 ## [0.4.0](https://github.com/carsdotcom/car_req/compare/0.3.4...0.4.0) - 2026-09-01
 
 ### Added

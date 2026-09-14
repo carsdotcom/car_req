@@ -806,12 +806,60 @@ defmodule CarReqTest do
     test "sends an exception event when a pool timeout occurs" do
       defmodule PoolTimeoutClient do
         use CarReq,
-          pool_timeout: 0
+          pool_timeout: 0,
+          datadog_service_name: :pool_timeout_svc
       end
 
-      PoolTimeoutClient.request(url: "http://www.sssnakes.com")
+      PoolTimeoutClient.request(method: :get, url: "http://www.sssnakes.com")
       assert_receive {:event, [:http_car_req, :request, :start], _, _}
-      assert_receive {:event, [:http_car_req, :request, :stop], _, %{reason: :pool_timeout}}
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{
+                        reason: :pool_timeout,
+                        method: :get,
+                        datadog_service_name: :pool_timeout_svc,
+                        url: "http://www.sssnakes.com"
+                      }}
+    end
+
+    test "keeps start metadata on stop when JSON decoding raises" do
+      raise_decode = fn _request ->
+        raise %Jason.DecodeError{data: "<html>", position: 0}
+      end
+
+      assert {:error, :json_decode_error} =
+               TestImpl.request(
+                 method: :post,
+                 url: "https://www.example.com/deals",
+                 adapter: raise_decode,
+                 datadog_service_name: :json_decode_svc
+               )
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{
+                        reason: :json_decode_error,
+                        method: :post,
+                        datadog_service_name: :json_decode_svc,
+                        url: "https://www.example.com/deals"
+                      }}
+    end
+
+    test "keeps start metadata on stop for the catch-all rescue" do
+      assert {:error, "%ArgumentError{message: \"unknown option :mathematical\"}"} =
+               TestImpl.request(
+                 method: :get,
+                 url: "https://www.example.com/",
+                 mathematical: :get,
+                 datadog_service_name: :catch_all_svc
+               )
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{
+                        reason: "%ArgumentError{message: \"unknown option :mathematical\"}",
+                        method: :get,
+                        datadog_service_name: :catch_all_svc,
+                        url: "https://www.example.com/"
+                      }}
     end
 
     test "adds an error reason to stop message when req response is error" do
