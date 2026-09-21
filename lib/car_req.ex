@@ -15,7 +15,7 @@ defmodule CarReq do
       type: :atom
     ],
     finch: [
-      type: :atom
+      type: {:or, [:atom, {:keyword_list, [name: [type: :atom]]}]}
     ],
     pool_timeout: [
       default: 500,
@@ -186,8 +186,8 @@ defmodule CarReq do
   Wrap the request and response steps in telemetry spans.
   """
   def client(options) do
-    {request_timeout, options} = Keyword.pop(options, :request_timeout)
-    options = put_request_timeout(options, request_timeout)
+    options =
+      normalize_finch_option(options)
 
     Req.new()
     |> Req.Request.register_options([
@@ -202,73 +202,45 @@ defmodule CarReq do
     |> then(fn req -> update_in(req.response_steps, &CarReq.Telemetry.response_spanner/1) end)
   end
 
-  # Req's Finch adapter forwards only `:receive_timeout` and `:pool_timeout`; it has no
-  # `:request_timeout` option, and `:request_timeout` is not a registered Req option (so it must be
-  # popped before `Req.merge/2` or Req raises). `:receive_timeout` bounds the wait for each response
-  # chunk, not the whole request, so an upstream that trickles or stalls can hold a call open far
-  # longer than expected. When `:request_timeout` is set we inject Finch's total-response deadline
-  # through Req's supported `:finch_request` hook, running the Finch request ourselves and
-  # normalizing the result exactly as `Req.Finch` does so callers and telemetry see the same
-  # exceptions (notably `Req.TransportError{reason: :timeout}`).
-  #
-  # The hook replaces Req's default Finch call, which is also where Req dispatches `:into`
-  # (streaming) responses — so `:request_timeout` cannot be combined with `:into`, and we fail
-  # fast rather than silently buffering a streamed response in full. `:into` is refused both when
-  # it is present as the client is built and when it is applied later via `Req.request/2` or
-  # `Req.merge/2` (the hook inspects the final `request.into`).
-  @spec put_request_timeout(keyword(), timeout() | nil) :: keyword()
-  defp put_request_timeout(options, nil), do: options
+  @spec normalize_finch_option(keyword()) :: keyword()
+  defp normalize_finch_option(options) do
+    {pool_timeout, options} = Keyword.pop(options, :pool_timeout)
 
-  defp put_request_timeout(options, request_timeout) do
-    if Keyword.has_key?(options, :into), do: raise_into_conflict!()
+    case Keyword.fetch(options, :finch) do
+      {:ok, name} when is_atom(name) ->
+        Keyword.put(options, :finch, finch_options(name, pool_timeout))
 
-    hook = fn request, finch_request, finch_name, finch_options ->
-      if request.into, do: raise_into_conflict!()
+      {:ok, finch_options} when is_list(finch_options) ->
+        Keyword.put(options, :finch, add_pool_timeout(finch_options, pool_timeout))
 
-      finch_options = Keyword.put(finch_options, :request_timeout, request_timeout)
+      {:ok, _invalid_finch} ->
+        maybe_put_pool_timeout(options, pool_timeout)
 
-      case Finch.request(finch_request, finch_name, finch_options) do
-        {:ok, response} -> {request, Req.Response.new(response)}
-        {:error, exception} -> {request, normalize_finch_error(exception)}
-      end
+      :error ->
+        maybe_put_finch(options, pool_timeout)
     end
-
-    Keyword.put(options, :finch_request, hook)
   end
 
-  @spec raise_into_conflict!() :: no_return()
-  defp raise_into_conflict! do
-    raise ArgumentError,
-          ":request_timeout cannot be combined with :into. Setting :request_timeout installs a " <>
-            ":finch_request hook that bypasses Req's streaming dispatch, so an :into (streaming) " <>
-            "request would be silently buffered in full instead. Drop :request_timeout for " <>
-            "streaming requests, or bound them another way (e.g. :receive_timeout)."
+  @spec finch_options(atom(), timeout() | nil) :: keyword()
+  defp finch_options(name, pool_timeout) do
+    [name: name] |> add_pool_timeout(pool_timeout)
   end
 
-  # Guards on the module (rather than struct patterns) so this compiles without Mint/Finch being
-  # compile-time dependencies of car_req: the error structs only need to exist at runtime, which
-  # they do (finch produces them). Mirrors `Req.Finch`'s own error normalization.
-  @spec normalize_finch_error(Exception.t()) :: Exception.t()
-  defp normalize_finch_error(error) when is_struct(error, Mint.TransportError),
-    do: %Req.TransportError{reason: error.reason}
+  @spec add_pool_timeout(keyword(), timeout() | nil) :: keyword()
+  defp add_pool_timeout(options, nil), do: options
 
-  defp normalize_finch_error(error) when is_struct(error, Mint.HTTPError),
-    do: %Req.HTTPError{protocol: finch_http_protocol(error.module), reason: error.reason}
+  defp add_pool_timeout(options, pool_timeout),
+    do: Keyword.put_new(options, :pool_timeout, pool_timeout)
 
-  defp normalize_finch_error(error) when is_struct(error, Finch.Error),
-    do: %Req.HTTPError{protocol: :http2, reason: error.reason}
+  defp maybe_put_finch(options, nil), do: options
 
-  defp normalize_finch_error(error) when is_struct(error, Finch.TransportError),
-    do: %Req.TransportError{reason: error.reason}
+  defp maybe_put_finch(options, pool_timeout),
+    do: Keyword.put(options, :finch, pool_timeout: pool_timeout)
 
-  defp normalize_finch_error(error) when is_struct(error, Finch.HTTPError),
-    do: %Req.HTTPError{protocol: finch_http_protocol(error.module), reason: error.reason}
+  defp maybe_put_pool_timeout(options, nil), do: options
 
-  defp normalize_finch_error(error), do: error
-
-  @spec finch_http_protocol(module()) :: :http1 | :http2
-  defp finch_http_protocol(Mint.HTTP2), do: :http2
-  defp finch_http_protocol(_module), do: :http1
+  defp maybe_put_pool_timeout(options, pool_timeout),
+    do: Keyword.put(options, :pool_timeout, pool_timeout)
 
   @callback client_options() :: keyword()
 

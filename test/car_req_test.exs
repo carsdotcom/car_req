@@ -80,7 +80,8 @@ defmodule CarReqTest do
       # client should still have all CarReq defaults set
       # client_options should override the CarReq defaults
       client = TestClient0Impl.client()
-      assert client.options.pool_timeout == 99
+      assert client.options.finch == [pool_timeout: 99]
+      refute Map.has_key?(client.options, :pool_timeout)
       assert client.options.receive_timeout == 0
       assert client.options.retry == false
       assert client.options.fuse_name == TestClient0Impl
@@ -205,8 +206,28 @@ defmodule CarReqTest do
                TestFinchTimeout.request(
                  method: :get,
                  url: "http://127.0.0.1:#{port}/",
-                 adapter: &Req.Steps.run_finch/1
+                 adapter: Req.Finch
                )
+    end
+
+    test "normalizes legacy Finch names to Req's option shape" do
+      defmodule TestLegacyFinchOption do
+        use CarReq, finch: CarReq.FinchSupervisor
+      end
+
+      defmodule TestKeywordFinchOption do
+        use CarReq, finch: [name: CarReq.FinchSupervisor]
+      end
+
+      assert TestLegacyFinchOption.client().options.finch == [
+               pool_timeout: 500,
+               name: CarReq.FinchSupervisor
+             ]
+
+      assert TestKeywordFinchOption.client().options.finch == [
+               pool_timeout: 500,
+               name: CarReq.FinchSupervisor
+             ]
     end
 
     test "setting :implementing_module, raises", %{name: name} do
@@ -677,15 +698,15 @@ defmodule CarReqTest do
   end
 
   describe "request_timeout" do
-    test "is a valid option that installs a finch_request hook and is not passed to Req" do
+    test "is passed to Req's Finch adapter" do
       defmodule TestRequestTimeoutOption do
         use CarReq, request_timeout: 250
       end
 
       client = TestRequestTimeoutOption.client()
 
-      assert is_function(client.options[:finch_request], 4)
-      refute Map.has_key?(client.options, :request_timeout)
+      assert client.options[:request_timeout] == 250
+      refute Map.has_key?(client.options, :finch_request)
       :fuse.remove(TestRequestTimeoutOption)
     end
 
@@ -721,40 +742,6 @@ defmodule CarReqTest do
                TestRequestTimeoutStall.request(method: :get, url: "http://127.0.0.1:#{port}/")
 
       :fuse.remove(TestRequestTimeoutStall)
-    end
-
-    test "raises when :request_timeout is combined with :into (streaming)" do
-      defmodule TestRequestTimeoutInto do
-        use CarReq, request_timeout: 250
-      end
-
-      # :request_timeout installs a :finch_request hook that bypasses Req's streaming dispatch, so
-      # combining it with :into would silently buffer the response — fail fast instead.
-      assert_raise ArgumentError, ~r/:request_timeout cannot be combined with :into/, fn ->
-        TestRequestTimeoutInto.client(into: fn {:data, _data}, acc -> {:cont, acc} end)
-      end
-
-      :fuse.remove(TestRequestTimeoutInto)
-    end
-
-    test "raises when :into is applied at request time, after the client is built" do
-      defmodule TestRequestTimeoutIntoLate do
-        use CarReq, request_timeout: 250
-      end
-
-      # The client is built without :into (so the build-time guard passes), then :into is added at
-      # request time. The hook still runs, so it must inspect the final request and refuse.
-      client = TestRequestTimeoutIntoLate.client()
-
-      assert_raise ArgumentError, ~r/:request_timeout cannot be combined with :into/, fn ->
-        Req.request(client,
-          method: :get,
-          url: "http://127.0.0.1:1/",
-          into: fn {:data, _data}, acc -> {:cont, acc} end
-        )
-      end
-
-      :fuse.remove(TestRequestTimeoutIntoLate)
     end
   end
 
@@ -871,7 +858,7 @@ defmodule CarReqTest do
       TimeoutClient.request(
         method: :get,
         url: "http://www.sssnakes.com",
-        adapter: &Req.Steps.run_finch/1
+        adapter: Req.Finch
       )
 
       assert_receive {:event, [:http_car_req, :request, :stop], _,
