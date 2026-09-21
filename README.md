@@ -150,7 +150,9 @@ MyResourceOverrideClient.request(
 
   ### General
   - `:base_url` - Base URL for all requests (e.g., `"https://www.cars.com/"`).
-  - `:finch` - The Finch pool to use. Defaults to Req's default pool.
+  - `:finch` - Finch options such as `[name: MyFinch]`. Legacy Finch names such as
+    `MyFinch` are accepted and normalized to the new Req option shape. Defaults to Req's
+    default pool.
 
   ### Adapter / Timeout
   - `:pool_timeout` - How long to wait to checkout a connection from the pool. Default: `500`.
@@ -161,11 +163,8 @@ MyResourceOverrideClient.request(
     (HTTP/1 only, best-effort). Unset by default (no total deadline, matching Finch's `:infinity`).
     Set this to bound the whole request when an upstream may stall past `:receive_timeout`; on
     expiry the request fails with `%Req.TransportError{reason: :timeout}`, the same shape as a
-    `:receive_timeout`. Because Req's Finch adapter does not forward `:request_timeout`, CarReq
-    applies it via Req's `:finch_request` hook. Two consequences: it overrides any custom
-    `:finch_request` you pass, and it **cannot be combined with `:into`** (streaming) — doing so
-    raises `ArgumentError`, since the hook would otherwise silently bypass Req's streaming dispatch
-    and buffer the whole response in memory.
+    `:receive_timeout`. Req 0.7's Finch adapter handles this option directly, including streaming
+    requests.
 
   ### Response Handling
   - `:raw` - Bypass the decompress step on the response body when `true`. Default: `false`.

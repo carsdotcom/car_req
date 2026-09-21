@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Support Req 0.7's `finch: [name: FinchName]` option shape. Legacy atom Finch names
+  remain accepted by CarReq but are normalized before reaching Req, avoiding Req's
+  Finch and `pool_timeout` deprecation warnings.
+- Use Req 0.7's native `request_timeout` support instead of the deprecated `:finch_request`
+  hook.
+
 ## [0.4.1](https://github.com/carsdotcom/car_req/compare/0.4.0...0.4.1) - 2026-09-14
 
 ### Fixed
