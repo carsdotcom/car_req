@@ -268,6 +268,13 @@ defmodule CarReq do
       ## Additional Request Options
 
         A full list of options [can be found here.](https://hexdocs.pm/req/Req.html#request/1-options)
+
+      ## Errors
+
+      Raised exceptions return `{:error, {:unexpected_exception, module_name}}`, with
+      only the exception module name exposed. JSON decoding errors and Finch pool
+      timeouts return `:json_decode_error` and `:pool_timeout` reasons, respectively.
+      Exceptions returned by Req, rather than raised, are passed through unchanged.
       """
       def request(request_options) do
         metadata = telemetry_metadata(request_options)
@@ -296,7 +303,8 @@ defmodule CarReq do
               if Map.get(error, :message, "") =~ "Finch was unable to provide a connection" do
                 {{:error, :pool_timeout}, Map.merge(metadata, %{reason: :pool_timeout})}
               else
-                {{:error, inspect(error)}, Map.merge(metadata, %{reason: inspect(error)})}
+                reason = CarReq.Telemetry.exception_reason(error)
+                {{:error, reason}, Map.merge(metadata, %{reason: reason})}
               end
           end
         end)

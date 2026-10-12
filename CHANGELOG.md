@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** Unexpected raised request exceptions now return
+  `{:error, {:unexpected_exception, "<exception module name>"}}` instead of an
+  inspected exception string. The request stop event uses the same sanitized
+  reason and preserves start metadata. Callers matching binary error reasons
+  must update their matches.
+- **Breaking:** `[:req, :step, :exception]` events now report raised exceptions
+  using `{:unexpected_exception, "<exception module name>"}` and an empty
+  `stacktrace`, preventing exception fields and stacktrace arguments from leaking
+  into telemetry. Step timing, span correlation, and exception propagation are
+  unchanged. Throw/exit metadata, pool-timeout and JSON-decode request reasons,
+  and exceptions returned by Req are unchanged.
 - Support Req 0.7's `finch: [name: FinchName]` option shape. Legacy atom Finch names
   remain accepted by CarReq but are normalized before reaching Req, avoiding Req's
   Finch and `pool_timeout` deprecation warnings.
