@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0](https://github.com/carsdotcom/car_req/compare/0.4.1...0.5.0) - 2026-10-12
+## [0.5.0](https://github.com/carsdotcom/car_req/compare/0.4.2...0.5.0) - 2026-10-12
 
 ### Changed
 
@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Telemetry handlers that interpolate `reason` into a string (`"#{metadata.reason}"`)
   now raise `Protocol.UndefinedError`, and `:telemetry` permanently detaches a
   handler that raises. Check handlers before upgrading; use `inspect/1` instead.
+
+## [0.4.2](https://github.com/carsdotcom/car_req/compare/0.4.1...0.4.2) - 2026-09-21
+
+### Changed
+
 - Support Req 0.7's `finch: [name: FinchName]` option shape. Legacy atom Finch names
   remain accepted by CarReq but are normalized before reaching Req, avoiding Req's
   Finch and `pool_timeout` deprecation warnings.
