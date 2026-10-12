@@ -40,6 +40,12 @@ defmodule CarReqTest do
     use CarReq
   end
 
+  defmodule ResponseBodyAdapter do
+    def run(request) do
+      {request, Req.Response.new(status: 200, body: request.body)}
+    end
+  end
+
   @moduletag :capture_log
   describe "use CarReq/1" do
     test "with no opts has reasonable defaults" do
@@ -301,7 +307,7 @@ defmodule CarReqTest do
 
     test "only valid request_options are permitted" do
       # during request/1 the errors are rescued
-      assert {:error, "%ArgumentError{message: \"unknown option :mathematical\"}"} =
+      assert {:error, {:unexpected_exception, "ArgumentError"}} =
                TestImpl.request(mathematical: :get)
 
       assert_raise ArgumentError, "unknown option :mathematical", fn ->
@@ -651,7 +657,7 @@ defmodule CarReqTest do
           receive_timeout: 10
         )
 
-      assert resp == {:error, "%ArgumentError{message: \"unknown registry: CarReq.Finch\"}"}
+      assert resp == {:error, {:unexpected_exception, "ArgumentError"}}
     end
 
     test "with valid finch supervisor name" do
@@ -832,7 +838,7 @@ defmodule CarReqTest do
     end
 
     test "keeps start metadata on stop for the catch-all rescue" do
-      assert {:error, "%ArgumentError{message: \"unknown option :mathematical\"}"} =
+      assert {:error, {:unexpected_exception, "ArgumentError"}} =
                TestImpl.request(
                  method: :get,
                  url: "https://www.example.com/",
@@ -842,11 +848,95 @@ defmodule CarReqTest do
 
       assert_receive {:event, [:http_car_req, :request, :stop], _,
                       %{
-                        reason: "%ArgumentError{message: \"unknown option :mathematical\"}",
+                        reason: {:unexpected_exception, "ArgumentError"},
                         method: :get,
                         datadog_service_name: :catch_all_svc,
                         url: "https://www.example.com/"
                       }}
+    end
+
+    test "does not expose exception contents in results, telemetry, or logs" do
+      credential = "synthetic-aws-session-secret-CORE-7947"
+
+      step_ref =
+        :telemetry_test.attach_event_handlers(self(), [
+          [:req, :step, :start],
+          [:req, :step, :stop],
+          [:req, :step, :exception]
+        ])
+
+      logs =
+        capture_log(fn ->
+          result =
+            TestImpl.request(
+              method: :post,
+              url: "https://example.test/",
+              params: [page: 1],
+              datadog_service_name: :safe_exception_svc,
+              resource_name_override: "safe-resource",
+              body: credential,
+              adapter: ResponseBodyAdapter,
+              log_function: fn {_request, response} ->
+                raise %CaseClauseError{term: response.body}
+              end
+            )
+
+          assert result == {:error, {:unexpected_exception, "CaseClauseError"}}
+          refute inspect(result, limit: :infinity) =~ credential
+        end)
+
+      refute logs =~ credential
+
+      assert_receive {:event, [:http_car_req, :request, :start], _, start_metadata}
+      assert_receive {:event, [:http_car_req, :request, :stop], _, stop_metadata}
+      assert stop_metadata.reason == {:unexpected_exception, "CaseClauseError"}
+      assert stop_metadata.method == :post
+      assert stop_metadata.url == "https://example.test/"
+      assert stop_metadata.query_params == [page: 1]
+      assert stop_metadata.datadog_service_name == :safe_exception_svc
+      assert stop_metadata.resource_name_override == "safe-resource"
+      assert stop_metadata.telemetry_span_context == start_metadata.telemetry_span_context
+      refute inspect([start_metadata, stop_metadata], limit: :infinity) =~ credential
+      refute_received {:event, [:http_car_req, :request, :exception], _, _}
+
+      assert_received {[:req, :step, :exception], ^step_ref, measurements,
+                       %{
+                         step_name: :log_function,
+                         step_phase: :response,
+                         kind: :error,
+                         reason: {:unexpected_exception, "CaseClauseError"},
+                         stacktrace: []
+                       } = exception_metadata}
+
+      assert measurements.duration >= 0
+      refute inspect(exception_metadata, limit: :infinity) =~ credential
+
+      step_events =
+        Stream.repeatedly(fn ->
+          receive do
+            {[:req, :step, _], ^step_ref, measurements, metadata} ->
+              {measurements, metadata}
+          after
+            0 -> nil
+          end
+        end)
+        |> Enum.take_while(&(&1 != nil))
+
+      refute inspect(step_events, limit: :infinity) =~ credential
+    end
+
+    test "preserves exceptions returned by Req in the result and stop metadata" do
+      exception = %Req.TransportError{reason: :closed}
+
+      assert {:error, ^exception} =
+               TestImpl.request(
+                 method: :get,
+                 url: "https://example.test/",
+                 adapter: &Adapter.closed/1
+               )
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{reason: ^exception, method: :get}}
     end
 
     test "adds an error reason to stop message when req response is error" do
