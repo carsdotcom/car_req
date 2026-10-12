@@ -44,7 +44,10 @@ defmodule CarReq.TelemetryTest do
       assert_received {[:req, :step, :exception], ^ref, measurements, metadata}
       assert metadata.kind == :error
       assert metadata.reason == {:unexpected_exception, "CaseClauseError"}
-      assert metadata.stacktrace == []
+
+      assert [{__MODULE__, :raise_with_arguments, 1, location} | _] = metadata.stacktrace
+      assert Keyword.keys(location) == [:file, :line]
+      assert_sanitized_frames(metadata.stacktrace)
       assert metadata.step_name == :sensitive_step
       assert metadata.step_phase == phase
       assert metadata.telemetry_span_context == start_metadata.telemetry_span_context
@@ -83,20 +86,82 @@ defmodule CarReq.TelemetryTest do
     end
   end
 
-  for kind <- [:throw, :exit] do
-    test "step #{kind} keeps its original propagation and telemetry" do
-      ref = :telemetry_test.attach_event_handlers(self(), [[:req, :step, :exception]])
+  test "step throw and exit reasons keep only a leading atom and still propagate" do
+    credential = "synthetic-exit-secret-CORE-7947"
+    call = {GenServer, :call, [self(), {:request, %{authorization: credential}}, 5_000]}
 
-      [{:failure, step}] =
-        CarReq.Telemetry.request_spanner(
-          failure: fn _ -> :erlang.raise(unquote(kind), :original_reason, []) end
-        )
+    cases = [
+      {:exit, :timeout, :timeout},
+      {:exit, {:timeout, call}, :timeout},
+      {:exit, credential, :redacted},
+      {:exit, {credential, :timeout}, :redacted},
+      {:throw, :halt, :halt},
+      {:throw, {:ok, credential}, :ok},
+      {:throw, %{token: credential}, :redacted},
+      {:throw, [credential], :redacted}
+    ]
 
-      assert catch_kind(unquote(kind), step) == :original_reason
-      assert_received {[:req, :step, :exception], ^ref, _, metadata}
-      assert metadata.kind == unquote(kind)
-      assert metadata.reason == :original_reason
-      assert metadata.stacktrace == []
+    ref = :telemetry_test.attach_event_handlers(self(), [[:req, :step, :exception]])
+
+    reasons =
+      for {kind, reason, _expected} <- cases do
+        [{:failure, step}] =
+          CarReq.Telemetry.request_spanner(
+            failure: fn _ -> :erlang.raise(kind, reason, sensitive_stacktrace(credential)) end
+          )
+
+        assert catch_kind(kind, step) == reason
+        assert_received {[:req, :step, :exception], ^ref, _, metadata}
+        assert metadata.kind == kind
+        assert_sanitized_frames(metadata.stacktrace)
+        refute inspect(metadata, limit: :infinity) =~ credential
+        metadata.reason
+      end
+
+    assert reasons == Enum.map(cases, &elem(&1, 2))
+  end
+
+  test "stacktrace frames keep module, function, arity, file, and line only" do
+    credential = "synthetic-frame-secret-CORE-7947"
+    ref = :telemetry_test.attach_event_handlers(self(), [[:req, :step, :exception]])
+
+    [{:failure, step}] =
+      CarReq.Telemetry.request_spanner(
+        failure: fn _ ->
+          :erlang.raise(
+            :error,
+            %RuntimeError{message: credential},
+            sensitive_stacktrace(credential)
+          )
+        end
+      )
+
+    assert_raise RuntimeError, fn -> step.(:request) end
+    assert_received {[:req, :step, :exception], ^ref, _, metadata}
+
+    assert metadata.stacktrace == [
+             {Example, :with_args, 1, [file: ~c"lib/example.ex", line: 3]},
+             {Example, :with_arity, 2, [file: ~c"lib/example.ex", line: 7]},
+             {Example, :without_location, 0, []}
+           ]
+
+    refute inspect(metadata, limit: :infinity) =~ credential
+  end
+
+  defp sensitive_stacktrace(credential) do
+    [
+      {Example, :with_args, [credential],
+       [file: ~c"lib/example.ex", line: 3, error_info: %{cause: credential}]},
+      {Example, :with_arity, 2, [file: ~c"lib/example.ex", line: 7]},
+      {Example, :without_location, 0, []}
+    ]
+  end
+
+  defp assert_sanitized_frames(stacktrace) do
+    for frame <- stacktrace do
+      assert {module, function, arity, location} = frame
+      assert is_atom(module) and is_atom(function) and is_integer(arity)
+      assert Keyword.keys(location) -- [:file, :line] == []
     end
   end
 
@@ -114,7 +179,7 @@ defmodule CarReq.TelemetryTest do
 
     assert_received {[:req, :step, :exception], ^ref, _, metadata}
     assert metadata.reason == {:unexpected_exception, "ArgumentError"}
-    assert metadata.stacktrace == []
+    assert_sanitized_frames(metadata.stacktrace)
     refute inspect(metadata, limit: :infinity) =~ credential
   end
 

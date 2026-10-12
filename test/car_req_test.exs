@@ -46,6 +46,16 @@ defmodule CarReqTest do
     end
   end
 
+  defmodule KeyErrorAdapter do
+    def run(request), do: Map.fetch!(request.options, :missing_option_core_7947)
+  end
+
+  defmodule CallTimeoutAdapter do
+    def run(request) do
+      exit({:timeout, {GenServer, :call, [self(), {:request, request.body}, 5_000]}})
+    end
+  end
+
   @moduletag :capture_log
   describe "use CarReq/1" do
     test "with no opts has reasonable defaults" do
@@ -789,6 +799,25 @@ defmodule CarReqTest do
     end
   end
 
+  describe "pool_timeout?/1" do
+    test "classifies only exceptions carrying Finch's pool checkout message" do
+      finch_message =
+        "Finch was unable to provide a connection within the timeout due to excess queuing"
+
+      cases = [
+        {%RuntimeError{message: finch_message}, true},
+        {%RuntimeError{message: "prefix " <> finch_message}, true},
+        {%RuntimeError{message: "circuit breaker is open"}, false},
+        {%KeyError{key: :missing, term: %{}}, false},
+        {%ArgumentError{message: "unknown option :mathematical"}, false},
+        {%CaseClauseError{term: finch_message}, false}
+      ]
+
+      assert Enum.map(cases, fn {error, _} -> CarReq.pool_timeout?(error) end) ==
+               Enum.map(cases, &elem(&1, 1))
+    end
+  end
+
   describe "telemetry events" do
     test "sends a start and stop event when making a request" do
       TestImpl.request(method: :get, url: "https://www.example.com/")
@@ -904,8 +933,7 @@ defmodule CarReqTest do
                          step_name: :log_function,
                          step_phase: :response,
                          kind: :error,
-                         reason: {:unexpected_exception, "CaseClauseError"},
-                         stacktrace: []
+                         reason: {:unexpected_exception, "CaseClauseError"}
                        } = exception_metadata}
 
       assert measurements.duration >= 0
@@ -923,6 +951,47 @@ defmodule CarReqTest do
         |> Enum.take_while(&(&1 != nil))
 
       refute inspect(step_events, limit: :infinity) =~ credential
+    end
+
+    test "exceptions with a nil message return a sanitized reason" do
+      assert {:error, {:unexpected_exception, "KeyError"}} =
+               TestImpl.request(
+                 method: :get,
+                 url: "https://example.test/",
+                 adapter: KeyErrorAdapter
+               )
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{reason: {:unexpected_exception, "KeyError"}, method: :get}}
+
+      refute_received {:event, [:http_car_req, :request, :exception], _, _}
+    end
+
+    test "request exits propagate with sanitized exception metadata" do
+      credential = "synthetic-call-secret-CORE-7947"
+
+      exit_reason =
+        catch_exit(
+          TestImpl.request(
+            method: :post,
+            url: "https://example.test/",
+            body: credential,
+            datadog_service_name: :exit_svc,
+            adapter: CallTimeoutAdapter
+          )
+        )
+
+      assert {:timeout, {GenServer, :call, _}} = exit_reason
+
+      assert_receive {:event, [:http_car_req, :request, :start], _, start_metadata}
+      assert_receive {:event, [:http_car_req, :request, :exception], _, metadata}
+      assert metadata.kind == :exit
+      assert metadata.reason == :timeout
+      assert metadata.method == :post
+      assert metadata.datadog_service_name == :exit_svc
+      assert metadata.telemetry_span_context == start_metadata.telemetry_span_context
+      refute inspect(metadata, limit: :infinity) =~ credential
+      refute_received {:event, [:http_car_req, :request, :stop], _, _}
     end
 
     test "preserves exceptions returned by Req in the result and stop metadata" do
