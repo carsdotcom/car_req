@@ -148,6 +148,37 @@ defmodule CarReq.TelemetryTest do
     refute inspect(metadata, limit: :infinity) =~ credential
   end
 
+  test "stacktrace fun frames are sanitized without replacing the original exception" do
+    credential = "synthetic-fun-frame-secret-CORE-7947"
+    fun = fn ^credential -> :ok end
+    ref = :telemetry_test.attach_event_handlers(self(), [[:req, :step, :exception]])
+
+    [{:failure, step}] =
+      CarReq.Telemetry.request_spanner(
+        failure: fn _ ->
+          :erlang.raise(
+            :error,
+            %RuntimeError{message: credential},
+            [
+              {fun, [credential],
+               [file: ~c"lib/example.ex", line: 11, error_info: %{cause: credential}]}
+              | sensitive_stacktrace(credential)
+            ]
+          )
+        end
+      )
+
+    assert_raise RuntimeError, fn -> step.(:request) end
+    assert_received {[:req, :step, :exception], ^ref, _, metadata}
+    assert metadata.kind == :error
+    assert metadata.reason == {:unexpected_exception, "RuntimeError"}
+
+    assert [{__MODULE__, _function, 1, location} | _] = metadata.stacktrace
+    assert Keyword.keys(location) == [:file, :line]
+    assert_sanitized_frames(metadata.stacktrace)
+    refute inspect(metadata, limit: :infinity) =~ credential
+  end
+
   defp sensitive_stacktrace(credential) do
     [
       {Example, :with_args, [credential],
