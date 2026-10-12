@@ -104,6 +104,16 @@ defmodule CarReq do
     NimbleOptions.validate!(opts, @compiled_schema)
   end
 
+  # Finch reports pool checkout timeouts only as a RuntimeError with this message.
+  @finch_pool_timeout_message "Finch was unable to provide a connection"
+
+  @doc false
+  @spec pool_timeout?(Exception.t()) :: boolean()
+  def pool_timeout?(%{message: message}) when is_binary(message),
+    do: message =~ @finch_pool_timeout_message
+
+  def pool_timeout?(_error), do: false
+
   def build_service_name(module_name, opts) do
     Keyword.get_lazy(opts, :datadog_service_name, fn ->
       module_name
@@ -275,14 +285,17 @@ defmodule CarReq do
       only the exception module name exposed. JSON decoding errors and Finch pool
       timeouts return `:json_decode_error` and `:pool_timeout` reasons, respectively.
       Exceptions returned by Req, rather than raised, are passed through unchanged.
+
+      Throws and exits propagate to the caller. Their `[:http_car_req, :request, :exception]`
+      telemetry is sanitized as described in `CarReq.Telemetry`.
       """
       def request(request_options) do
         metadata = telemetry_metadata(request_options)
 
-        # :telemetry.span/3 uses the second tuple element as stop metadata and does not
-        # merge start into :stop. Every return must Map.merge/2 the start metadata so
+        # The span uses the second tuple element as stop metadata and does not merge
+        # start into :stop. Every return must Map.merge/2 the start metadata so
         # method / datadog_service_name survive on the stop event.
-        :telemetry.span([:http_car_req, :request], metadata, fn ->
+        CarReq.Telemetry.span([:http_car_req, :request], metadata, fn ->
           try do
             request_options
             |> client()
@@ -299,8 +312,7 @@ defmodule CarReq do
               {{:error, :json_decode_error}, Map.merge(metadata, %{reason: :json_decode_error})}
 
             error ->
-              # Finch raises a RuntimeError for pool timeouts.
-              if Map.get(error, :message, "") =~ "Finch was unable to provide a connection" do
+              if CarReq.pool_timeout?(error) do
                 {{:error, :pool_timeout}, Map.merge(metadata, %{reason: :pool_timeout})}
               else
                 reason = CarReq.Telemetry.exception_reason(error)

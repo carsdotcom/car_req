@@ -7,19 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/carsdotcom/car_req/compare/0.4.1...0.5.0) - 2026-10-12
+
 ### Changed
 
 - **Breaking:** Unexpected raised request exceptions now return
   `{:error, {:unexpected_exception, "<exception module name>"}}` instead of an
   inspected exception string. The request stop event uses the same sanitized
   reason and preserves start metadata. Callers matching binary error reasons
-  must update their matches.
-- **Breaking:** `[:req, :step, :exception]` events now report raised exceptions
-  using `{:unexpected_exception, "<exception module name>"}` and an empty
-  `stacktrace`, preventing exception fields and stacktrace arguments from leaking
-  into telemetry. Step timing, span correlation, and exception propagation are
-  unchanged. Throw/exit metadata, pool-timeout and JSON-decode request reasons,
-  and exceptions returned by Req are unchanged.
+  must update their matches. Exceptions whose `message` is `nil`, such as
+  `KeyError`, previously crashed the caller and now return this reason too.
+- **Breaking:** `[:http_car_req, :request, :exception]` and `[:req, :step, :exception]`
+  events now carry sanitized metadata, so exception fields, exit reasons, and
+  stacktrace arguments no longer reach telemetry. Raised exceptions report
+  `{:unexpected_exception, "<exception module name>"}`. Throw and exit reasons keep
+  only an atom reason, or the leading atom of a tuple reason (for example
+  `:timeout`), and report `:redacted` otherwise. Stacktrace frames keep module,
+  function, arity, file, and line. Exceptions, throws, and exits still propagate
+  unchanged, as do span timing and correlation, pool-timeout and JSON-decode
+  request reasons, and exceptions returned by Req.
+- Telemetry handlers that interpolate `reason` into a string (`"#{metadata.reason}"`)
+  now raise `Protocol.UndefinedError`, and `:telemetry` permanently detaches a
+  handler that raises. Check handlers before upgrading; use `inspect/1` instead.
 - Support Req 0.7's `finch: [name: FinchName]` option shape. Legacy atom Finch names
   remain accepted by CarReq but are normalized before reaching Req, avoiding Req's
   Finch and `pool_timeout` deprecation warnings.
