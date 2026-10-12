@@ -99,9 +99,18 @@ defmodule CarReq.Telemetry do
   defp sanitize_reason(_kind, _reason, _stacktrace), do: :redacted
 
   # Location lists may also hold :error_info, whose :cause can be any term.
+  # Calls through anonymous functions report three-element frames holding the
+  # fun itself, so `Function.info/2` recovers atom-only module and function
+  # names and keeps the fun and its closed-over values out of the metadata.
   defp sanitize_stacktrace(stacktrace) do
-    Enum.map(stacktrace, fn {module, function, arity_or_args, location} ->
-      {module, function, arity(arity_or_args), Keyword.take(location, @location_keys)}
+    Enum.map(stacktrace, fn
+      {module, function, arity_or_args, location} ->
+        {module, function, arity(arity_or_args), Keyword.take(location, @location_keys)}
+
+      {fun, arity_or_args, location} when is_function(fun) ->
+        {:module, module} = Function.info(fun, :module)
+        {:name, function} = Function.info(fun, :name)
+        {module, function, arity(arity_or_args), Keyword.take(location, @location_keys)}
     end)
   end
 
