@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/carsdotcom/car_req/compare/0.5.0...0.6.0) - 2026-10-14
+
+### Added
+
+- `:telemetry_metadata` option, a map with atom keys that callers set on the client or per
+  request. It appears on `[:http_car_req, :request, *]` events as `metadata.telemetry_metadata`
+  (default `%{}`), with request-level keys merged over client-level keys. It lets an
+  implementation tell its instrumentation facts the URL does not make explicit, such as the
+  operation a request performs.
+
 ## [0.5.0](https://github.com/carsdotcom/car_req/compare/0.4.2...0.5.0) - 2026-10-12
 
 ### Changed

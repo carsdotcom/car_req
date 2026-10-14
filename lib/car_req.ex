@@ -78,6 +78,9 @@ defmodule CarReq do
     ],
     resource_name_override: [
       type: {:fun, 1}
+    ],
+    telemetry_metadata: [
+      type: {:map, :atom, :any}
     ]
   ]
 
@@ -203,7 +206,8 @@ defmodule CarReq do
     |> Req.Request.register_options([
       :datadog_service_name,
       :implementing_module,
-      :resource_name_override
+      :resource_name_override,
+      :telemetry_metadata
     ])
     |> LogStep.attach()
     |> CarReq.attach_circuit_breaker(options)
@@ -341,6 +345,7 @@ defmodule CarReq do
       end
 
       resource_name_override = Keyword.get(opts, :resource_name_override)
+      @telemetry_metadata Keyword.get(@options, :telemetry_metadata, %{})
 
       defp telemetry_metadata(request_options) do
         %{
@@ -350,7 +355,9 @@ defmodule CarReq do
           method: Keyword.get(request_options, :method),
           resource_name_override:
             Keyword.get(request_options, :resource_name_override, unquote(resource_name_override)),
-          query_params: Keyword.get(request_options, :params)
+          query_params: Keyword.get(request_options, :params),
+          telemetry_metadata:
+            Map.merge(@telemetry_metadata, Keyword.get(request_options, :telemetry_metadata, %{}))
         }
       end
 

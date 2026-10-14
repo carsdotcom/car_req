@@ -146,6 +146,26 @@ MyResourceOverrideClient.request(
 )
 ```
 
+### Telemetry metadata
+
+Use `:telemetry_metadata` to pass caller-known facts that the URL alone does not make explicit,
+such as the operation a request performs, to your instrumentation. The map appears on the start,
+stop, and exception events as `metadata.telemetry_metadata`, and defaults to `%{}`. CarReq does
+not read it. Keep values low-cardinality if your handlers turn them into metric attributes.
+
+```elixir
+defmodule SearchClient do
+  use CarReq, telemetry_metadata: %{system: :opensearch}
+end
+
+SearchClient.request(
+  method: :post,
+  url: "/listings/_msearch",
+  telemetry_metadata: %{operation: "msearch"}
+)
+# metadata.telemetry_metadata == %{system: :opensearch, operation: "msearch"}
+```
+
 ## Options
 
   ### General
@@ -185,6 +205,8 @@ MyResourceOverrideClient.request(
   - `:datadog_service_name` - An atom used to name Telemetry traces. This will be the service name used in DataDog.
   - `:log_function` - A 1-arity function to emit a Logger message, or `:none` to skip the logging step.
   - `:resource_name_override` - A 1-arity function to override the default resource name, or a hard-coded string.
+  - `:telemetry_metadata` - A map with atom keys added to the `[:http_car_req, :request, *]` event
+    metadata under `:telemetry_metadata`. Request-level keys are merged over client-level keys.
 
   ### Retry Logic
   - `:retry` - One of: `:safe_transient`, `:transient`, `false`, or a 1-arity function. Default: `false`.
