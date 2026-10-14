@@ -1118,6 +1118,56 @@ defmodule CarReqTest do
       assert override == "get employees_details_endpoint"
     end
 
+    test "defaults telemetry_metadata to an empty map" do
+      TestImpl.request(method: :get, url: "/200", adapter: &Adapter.success/1)
+
+      assert_receive {:event, [:http_car_req, :request, :start], _, %{telemetry_metadata: %{}}}
+      assert_receive {:event, [:http_car_req, :request, :stop], _, %{telemetry_metadata: %{}}}
+    end
+
+    test "merges request telemetry_metadata over client telemetry_metadata" do
+      defmodule TelemetryMetadataClient do
+        use CarReq, telemetry_metadata: %{system: :opensearch, operation: "search"}
+      end
+
+      TelemetryMetadataClient.request(
+        method: :post,
+        url: "/listings/_msearch",
+        adapter: &Adapter.success/1,
+        telemetry_metadata: %{operation: "msearch"}
+      )
+
+      expected = %{system: :opensearch, operation: "msearch"}
+
+      assert_receive {:event, [:http_car_req, :request, :start], _,
+                      %{telemetry_metadata: ^expected}}
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{telemetry_metadata: ^expected, status_code: 200}}
+    end
+
+    test "keeps telemetry_metadata on stop when a request errors" do
+      TestImpl.request(
+        method: :get,
+        url: "/closed",
+        adapter: &Adapter.closed/1,
+        fuse_opts: :disabled,
+        telemetry_metadata: %{operation: "search"}
+      )
+
+      assert_receive {:event, [:http_car_req, :request, :stop], _,
+                      %{
+                        telemetry_metadata: %{operation: "search"},
+                        reason: %Req.TransportError{reason: :closed}
+                      }}
+    end
+
+    test "rejects client telemetry_metadata that is not an atom-keyed map" do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        CarReq.validate_options!(telemetry_metadata: %{"operation" => "search"})
+      end
+    end
+
     test "determines service name for external namespaced clients" do
       defmodule Test.Foo.Bar.External.Service.ServiceNameClient do
         use CarReq
